@@ -1447,7 +1447,7 @@ const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:nul
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
 const onlineOn=()=>{const c=onCfg();return !!(c.url&&c.key)};
-function onClient(){if(!ONL.client){ONL.client=ST.get('modo_hr_client')||('c'+Math.random().toString(36).slice(2,10)+Date.now().toString(36));ST.set('modo_hr_client',ONL.client)}return ONL.client}
+function onClient(){if(!ONL.client){let dev=ST.get('modo_hr_client');if(!dev){dev='c'+Math.random().toString(36).slice(2,10);ST.set('modo_hr_client',dev)}ONL.client=dev+'-'+Math.random().toString(36).slice(2,7)}return ONL.client}/* one id per open tab */
 function hstr(s){let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)}return s.length.toString(36)+':'+(h>>>0).toString(36)}
 const rkey=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
 function ensureKeys(){ON_ARRS.forEach(c=>{(DB[c]||[]).forEach(r=>{if(r&&!r._k)r._k=rkey()})})}
@@ -1461,6 +1461,8 @@ function diffOps(){ensureKeys();const sh=ONL.shadow;const ops=[];
  const m=sh._root||(sh._root={});ON_ROOT.forEach(k=>{if(DB[k]===undefined)return;const j=JSON.stringify(DB[k]),hh=hstr(j);if(m[k]!==hh)ops.push({c:'_root',k,v:JSON.parse(j),h:hh})});
  return ops}
 function shadowSet(o){const m=ONL.shadow[o.c]||(ONL.shadow[o.c]={});if(o.v===null)delete m[o.k];else m[o.k]=o.h||hstr(JSON.stringify(o.v))}
+/* apply only what differs from what this tab already has (works for other users, other tabs, other devices) */
+function remoteIsNew(o){const m=(ONL.shadow&&ONL.shadow[o.c])||{};if(o.v===null)return o.k in m;return m[o.k]!==hstr(JSON.stringify(o.v))}
 function applyRemoteOp(o){
  if(o.c==='_root'){if(o.v===null)delete DB[o.k];else DB[o.k]=o.v}
  else if(ON_ARRS.includes(o.c)){const a=DB[o.c]||(DB[o.c]=[]);const i=a.findIndex(r=>r&&r._k===o.k);if(o.v===null){if(i>=0)a.splice(i,1)}else if(i>=0)a[i]=o.v;else a.push(o.v)}
@@ -1485,7 +1487,7 @@ async function onCycle(){if(!onlineOn()||!DB)return;if(ONL.busy){ONL.again=true;
     if(r.online)ONL.online=r.online}ONL.pendingN=0;persistShadow()}
   const p=await onCall({action:'poll',since:ONL.ver},60000);if(p.online)ONL.online=p.online;
   if(p.reset){await fullLoad();changed=true}
-  else{const mine=onClient();(p.batches||[]).forEach(b=>{if(b.client===mine)return;b.ops.forEach(o=>{applyRemoteOp(o);changed=true})});ONL.ver=p.ver;persistShadow()}
+  else{(p.batches||[]).forEach(b=>{b.ops.forEach(o=>{if(remoteIsNew(o)){applyRemoteOp(o);changed=true}})});ONL.ver=p.ver;persistShadow()}
   if(changed)await persist();ONL.lastOk=Date.now();onStatus('ok')}
  catch(e){onStatus('err',e.message);console.warn('online',e)}
  finally{ONL.busy=false;if(changed)onRemoteChanged();if(ONL.again){ONL.again=false;setTimeout(onCycle,50)}}}
@@ -1493,11 +1495,12 @@ function uiBusy(){const a=document.activeElement;const h=getHash();return (a&&a.
 function onRemoteChanged(){if(!S.user)return;if(!allUsers()[S.user]||DB.disabled_users.includes(S.user)){logout();return}if(uiBusy()){ONL.dirtyUI=true;const b=$('#onlb');if(b)b.outerHTML=onlineHTML();return}ONL.dirtyUI=false;const y=window.scrollY;render();window.scrollTo(0,y)}
 function onlineHTML(){if(!onlineOn())return '<span id="onlb"></span>';const n=ONL.online.length;const names=ONL.online.map(o=>o.user).filter((v,i,a)=>a.indexOf(v)===i);
  const dot=ONL.status==='err'?'#EF4444':ONL.status==='sync'?'#F59E0B':'#10B981';
- return `<span id="onlb" style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11.5px;color:#CBD5E1;cursor:pointer;flex-wrap:wrap" onclick="go('settings/sync')" title="${esc(names.join(', '))}"><i style="width:8px;height:8px;border-radius:50%;background:${dot};display:inline-block;box-shadow:0 0 8px ${dot}"></i>${ONL.status==='err'?L('Offline — will retry','غير متصل — ستتم إعادة المحاولة'):`${L('Online','أون لاين')} · ${n} ${L('connected','متصل')}`}${ONL.dirtyUI?` <a style="color:#FCD34D" onclick="event.stopPropagation();ONL.dirtyUI=false;render()">↻ ${L('new updates','تحديثات جديدة')}</a>`:''}</span>`}
+ return `<span id="onlb" style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11.5px;color:#CBD5E1;cursor:pointer;flex-wrap:wrap" onclick="onCycle().then(()=>notify(L('Synced','تمت المزامنة')+' · v'+ONL.ver,'info'))" title="${esc(names.join(', '))} · v${ONL.ver}"><i style="width:8px;height:8px;border-radius:50%;background:${dot};display:inline-block;box-shadow:0 0 8px ${dot}"></i>${ONL.status==='err'?L('Offline — will retry','غير متصل — ستتم إعادة المحاولة'):`${L('Online','أون لاين')} · ${n} ${L('connected','متصل')}`}${ONL.dirtyUI?` <a style="color:#FCD34D" onclick="event.stopPropagation();ONL.dirtyUI=false;render()">↻ ${L('new updates','تحديثات جديدة')}</a>`:''}</span>`}
 const _saveLocalOnline=saveDB;
 saveDB=function(){const ok=_saveLocalOnline();if(onlineOn()){clearTimeout(ONL.timer);ONL.timer=setTimeout(onCycle,700)}return ok};
 function onlineStart(){if(ONL.loop)clearInterval(ONL.loop);let tick=0;ONL.loop=setInterval(()=>{tick++;if(!onlineOn())return;const vis=document.visibilityState==='visible';if(vis||tick%5===0)onCycle()},4000);if(onlineOn())onCycle()}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&onlineOn())onCycle()});
+window.addEventListener('focus',()=>{if(onlineOn())onCycle()});
 
 /* Settings → Online */
 function setSync(){const c=onCfg();const on=onlineOn();const st=!on?badge(L('Off','غير مفعّل'),'mut'):ONL.status==='err'?badge(L('Not connected','غير متصل'),'bad'):badge(L('Connected','متصل'),'ok');
