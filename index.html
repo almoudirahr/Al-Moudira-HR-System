@@ -446,7 +446,7 @@ let TBLN=0;
 function table(cols,rows,opt){opt=opt||{};const id=opt.id||('t'+(++TBLN));
  return `<div class="tbl-wrap"><table class="tbl ${opt.cards===false?'':'cards'}" id="${id}"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr class="${r.cls||''}" data-s="${esc(String(r.s!=null?r.s:stripTags(r.c.join(' '))).toLowerCase())}">${r.c.map((c,i)=>`<td data-l="${esc(stripTags(cols[i]||''))}" ${r.span&&i===0?`colspan="${r.span}"`:''}>${c}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${cols.length}" class="empty">${L('No records found','لا توجد سجلات')}</td></tr>`}</tbody></table></div>`}
 function searchBox(tid,ph){const v=S.srch[tid]||'';return `<div class="search"><span>🔍</span><input data-t="${tid}" value="${esc(v)}" placeholder="${esc(ph||L('Search by code, name, department...','ابحث بالكود أو الاسم أو القسم...'))}" oninput="filterTbl(this)"></div>`}
-function filterTbl(inp){const tid=inp.dataset.t;const v=inp.value.trim().toLowerCase();S.srch[tid]=inp.value;let n=0;$$('#'+tid+' tbody tr').forEach(tr=>{const ok=!v||(tr.dataset.s||'').includes(v);tr.style.display=ok?'':'none';if(ok)n++});const c=$('#cnt_'+tid);if(c)c.textContent=n}
+function filterTbl(inp){const tid=inp.dataset.t;if(tid==='tatt'){S.srch[tid]=inp.value;clearTimeout(S.tmp._attQ);S.tmp._attQ=setTimeout(()=>{const p=inp.selectionStart;render();const n=document.querySelector('.search input[data-t="tatt"]');if(n){n.focus();try{n.setSelectionRange(p,p)}catch(e){}}},350);return}const v=inp.value.trim().toLowerCase();S.srch[tid]=inp.value;let n=0;$$('#'+tid+' tbody tr').forEach(tr=>{const ok=!v||(tr.dataset.s||'').includes(v);tr.style.display=ok?'':'none';if(ok)n++});const c=$('#cnt_'+tid);if(c)c.textContent=n}
 function fld(label,inner,full,req){return `<div class="fld ${full?'full':''}"><label>${label}${req?' <span class="req">*</span>':''}</label>${inner}</div>`}
 function opts(list,val,blank){return (blank?`<option value="">${blank===true?'—':esc(blank)}</option>`:'')+list.map(o=>{const v=Array.isArray(o)?o[0]:o,l=Array.isArray(o)?o[1]:tv(o);return `<option value="${esc(v)}" ${String(val)===String(v)?'selected':''}>${esc(l)}</option>`}).join('')}
 const inp=(name,val,type,extra)=>`<input type="${type||'text'}" name="${name}" value="${esc(val??'')}" ${extra||''}>`;
@@ -580,13 +580,13 @@ function loginPage(){let rem={};try{rem=JSON.parse(ST.get('modo_hr_remember')||'
  <div class="lg-err" id="lerr"></div><button type="button" class="lg-btn" id="lgB" onclick="doLogin(event)"><span class="sp"></span><span class="tx">${L('Sign in','تسجيل الدخول')} ${S.lang==='ar'?'←':'→'}</span></button>
  <div class="lg-secure">🛡️ ${L('Protected access · Activity is logged','دخول محمي · يتم تسجيل النشاط')}</div>
  ${S.tmp.connectMsg?`<div style="margin-top:12px;padding:10px;border-radius:10px;background:rgba(16,185,129,.12);color:#A7F3D0;text-align:center;font-weight:700">${esc(S.tmp.connectMsg)}</div>`:''}
- <details style="margin-top:14px;color:#9A93A8;font-size:12.5px" ${onlineOn()?'':'open'}><summary style="cursor:pointer;text-align:center;${onlineOn()?'':'color:#FCA5A5;font-weight:700'}">${onlineOn()?'🟢 '+L('This device is linked to the online server','هذا الجهاز مربوط بالخادم الأون لاين'):'⚠ '+L('This device is NOT linked to the online server','هذا الجهاز غير مربوط بالخادم الأون لاين')}</summary>
+ <details id="lgDet" style="margin-top:14px;color:#9A93A8;font-size:12.5px" ${onlineOn()?'':'open'}><summary id="lgSum" style="cursor:pointer;text-align:center;${onlineOn()?'':'color:#FCA5A5;font-weight:700'}">${onlineOn()?'🟢 '+L('This device is linked to the online server','هذا الجهاز مربوط بالخادم الأون لاين'):'⚠ '+L('This device is NOT linked to the online server','هذا الجهاز غير مربوط بالخادم الأون لاين')}</summary>
  <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px"><div class="lg-in"><input id="lgSU" dir="ltr" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(onCfg().url)}" style="padding:0 14px;height:44px"></div><div class="lg-in"><input id="lgSK" dir="ltr" placeholder="${esc(L('Key','المفتاح'))}" value="${esc(onCfg().key)}" style="padding:0 14px;height:44px"></div>
  <button type="button" class="lg-lang" style="align-self:center" onclick="lgConnect()">🔗 ${L('Connect','اتصال')}</button><div id="lgSR" style="text-align:center"></div></div></details></form></div>
  <div class="lg-foot">© ${new Date().getFullYear()} MODO HR · ${VER}</div></div>`}
 async function lgConnect(){const u=$('#lgSU').value.trim(),k=$('#lgSK').value.trim(),r=$('#lgSR');if(!u||!k){r.textContent=L('Enter the URL and key','أدخل الرابط والمفتاح');return}
  onSaveCfg({url:u,key:k});r.textContent='⏳';try{const info=await onCall({action:'info'},60000);if(!info.ver){r.innerHTML='⚠ '+L('Server is empty — sign in as admin and upload the data from Settings → Online.','الخادم فارغ — ادخل كمسؤول وارفع البيانات من الإعدادات ← أون لاين.');return}
- await fullLoad();r.innerHTML='✅ '+L('Connected — you can sign in now','تم الاتصال — يمكنك تسجيل الدخول الآن');onlineStart()}catch(e){r.innerHTML='❌ '+esc(e.message)}}
+ await fullLoad();r.innerHTML='✅ '+L('Connected — you can sign in now','تم الاتصال — يمكنك تسجيل الدخول الآن');onlineStart();const sm=$('#lgSum');if(sm){sm.style.color='';sm.style.fontWeight='';sm.textContent='🟢 '+L('This device is linked to the online server','هذا الجهاز مربوط بالخادم الأون لاين')}setTimeout(()=>{const d=$('#lgDet');if(d)d.open=false;const lu=$('#lu');if(lu)lu.focus()},1500)}catch(e){r.innerHTML='❌ '+esc(e.message)}}
 function lgEye(){const p=$('#lp');p.type=p.type==='password'?'text':'password';p.focus()}
 function lgCaps(e){const c=$('#lgC');if(c&&e.getModifierState)c.textContent=e.getModifierState('CapsLock')?'⇪ '+L('Caps Lock is on','زر الأحرف الكبيرة مفعّل'):''}
 function lgClock(){const t=$('#lgT');if(!t)return;const d=new Date();t.textContent=pad(d.getHours())+':'+pad(d.getMinutes());const dd=$('#lgD');if(dd)dd.textContent=d.toLocaleDateString(S.lang==='ar'?'ar-EG':'en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});clearTimeout(S.tmp.lgT);S.tmp.lgT=setTimeout(lgClock,15000)}
@@ -608,7 +608,7 @@ function render(){applyDir();const app=$('#app');
  if(key&&!allowed(key))html=head('🔒',L('Access denied','غير مسموح'),L('You do not have permission for this page.','ليس لديك صلاحية لهذه الصفحة.'),'#7F1D1D');
  else if(['zk','mobile','zkusers'].includes(p0)&&!isAdmin()){html=head('🔒',L('Admin only','للمدير فقط'),'','#7F1D1D')}else{const fn=ROUTES[p0];try{html=fn?fn(p1,p2,p3):head('❓',L('Not found','غير موجود'),'','#475569')}catch(e){console.error(e);html=head('⚠️',L('Error','خطأ'),esc(e.message),'#7F1D1D')}}
  S.tmp.after=S.tmp.after||null;app.innerHTML=shell(html,p0);app.dataset.ok=1;S.flash=null;
- $$('.search input').forEach(i=>{if(i.value)filterTbl(i)});
+ $$('.search input').forEach(i=>{if(i.value&&i.dataset.t!=='tatt')filterTbl(i)});
  const a=S.tmp.after;S.tmp.after=null;if(a)try{a()}catch(e){console.error(e)}}
 window.addEventListener('hashchange',()=>{let h='';try{h=location.hash}catch(e){}if(h===S.rendered)return;ROUTE=h;window.scrollTo(0,0);render()});
 
@@ -700,7 +700,9 @@ function photoRot(){if(!S.tmp.photo)return;const img=new Image();img.onload=()=>
 function photoDel(){S.tmp.photo='';$('#ph').innerHTML='👤'}
 function saveEmp(oldId){const f=F();const e=Object.assign({},EMP_DEF,oldId?getEmp(oldId):{});
  EMP_SECTIONS().forEach(s=>s[3].forEach(([k,,t])=>{let v=fv(f,k);if(t==='number')v=num(v);if(v!==undefined)e[k]=v}));
- if(e.emp_class==='5%')e.employee_type='5%';else if(e.employee_type==='5%'&&e.emp_class)e.employee_type='Regular';if(e.employee_type==='Casual')e.employee_type='Regular';
+ {const o=oldId?getEmp(oldId)||{}:{};const oc=empClass(o),ot=o.employee_type||'Regular';if(e.employee_type==='Casual')e.employee_type='Regular';
+  if(e.emp_class!==oc){if(e.emp_class==='5%')e.employee_type='5%';else if(e.employee_type==='5%')e.employee_type='Regular'}
+  else if(e.employee_type!==ot){if(e.employee_type==='5%')e.emp_class='5%';else if(e.emp_class==='5%')e.emp_class='Regular'}}
  e.emp_id=String(e.emp_id).trim();e.employee_photo=S.tmp.photo||'';e.number_of_spouses=Math.round(num(e.number_of_spouses));e.number_of_children=Math.round(num(e.number_of_children));
  const miss=[];if(!e.emp_id)miss.push(L('Employee ID','الكود'));if(!e.name)miss.push(L('Name','الاسم'));if(!e.department)miss.push(L('Department','القسم'));if(!e.position)miss.push(L('Position','الوظيفة'));if(!num(e.salary))miss.push(L('Salary','المرتب'));
  if(miss.length){notify(L('Required: ','حقول مطلوبة: ')+miss.join('، '),'err');return}
@@ -865,7 +867,7 @@ function lbEdit(e){if(!e||!canApprove())return head('❓',L('Not found','غير 
  ${fld(L('Manual Adjustment (+/- days)','تعديل يدوي (+/- أيام)'),inp('adj',e.leave_balance_adjustment||0,'number','step="any"'))}</div>
  <div class="mt kv"><b>${L('Total','الإجمالي')}</b><span>${b.total}</span><b>${L('Used','المستخدم')}</b><span>${b.used}</span><b>${L('Remaining','المتبقي')}</b><span><b>${b.remaining}</b></span></div><p class="muted">${L('Leave override fields empty to use automatic calculation.','اترك حقول التعديل فارغة لاستخدام الحساب التلقائي.')}</p>
  <div class="actions">${btn('💾 '+L('Save Changes','حفظ التغييرات'),`saveLB(${q(e.emp_id)})`,'g')}${btn('❌ '+L('Cancel','إلغاء'),"go('leaves/balance')",'r')}</div></form></div>`}
-function saveLB(id){const e=getEmp(id),f=F();const ov=(k)=>{const v=fv(f,k);return v===''?null:num(v)};e.employee_type=fv(f,'employee_type');e.hire_date=fv(f,'hire_date')||e.hire_date;e.svc_override=fv(f,'svc')||null;e.hol_override=ov('hol');e.dof_override=ov('dof');e.ann_override=ov('ann');e.leave_balance_adjustment=num(fv(f,'adj'));
+function saveLB(id){const e=getEmp(id),f=F();const ov=(k)=>{const v=fv(f,k);return v===''?null:num(v)};e.employee_type=fv(f,'employee_type');if(e.employee_type==='5%')e.emp_class='5%';else if(e.emp_class==='5%')e.emp_class='Regular';e.hire_date=fv(f,'hire_date')||e.hire_date;e.svc_override=fv(f,'svc')||null;e.hol_override=ov('hol');e.dof_override=ov('dof');e.ann_override=ov('ann');e.leave_balance_adjustment=num(fv(f,'adj'));
  log('Leave balance updated',id,'leave');saveDB();setFlash(L('Leave balance updated','تم تحديث الرصيد'));go('leaves/balance')}
 
 /* ═══════════════════ Attendance ═══════════════════ */
@@ -873,6 +875,7 @@ ROUTES.attendance=(act,id)=>{if(act==='new'||act==='edit')return attForm(act==='
  const fl=S.tmp.attF||{};const fr=parseD(fl.from),to=parseD(fl.to);
  const idx=DB.attendance.map((a,i)=>i).filter(i=>{const d=parseD(DB.attendance[i].date);return (!fr||(d&&d>=fr))&&(!to||(d&&d<=to))});
  idx.sort((x,y)=>{const a=DB.attendance[x],b=DB.attendance[y];return (parseD(b.date)||0)-(parseD(a.date)||0)||String(a.emp_id).localeCompare(String(b.emp_id),undefined,{numeric:true})});
+ const aq=String(S.srch.tatt||'').trim().toLowerCase();if(aq){const toks=aq.split(/\s+/);const keep=idx.filter(i=>{const r=DB.attendance[i],e=getEmp(r.emp_id);const h=[r.emp_id,e&&e.name,e&&e.arabic_name,tv(empDept(e)),fmtD(r.date),r.status,attStatus(r),r.source].join(' ').toLowerCase();return toks.every(t=>h.includes(t))});idx.length=0;keep.forEach(i=>idx.push(i))}
  const shown=idx.slice(0,3000);let totMin=0;
  const rows=shown.map(i=>{const a=DB.attendance[i],e=getEmp(a.emp_id);const m=durMin(a.check_in,a.check_out);totMin+=m;const st=attStatus(a);
   return {c:[esc(a.emp_id),esc(e?e.name:'—'),esc(tv(empDept(e))),fmtD(a.date),to24(a.check_in)||'—',to24(a.check_out)||'—',durStr(m)||'—',badge(st,st==='Present'?'ok':st==='Day Off'?'warn':st==='Absent'?'bad':'info'),srcLabel(a.source),`<div class="acts">${btn('✏️',`go('attendance/edit/${i}')`,'sm b')}${isAdmin()?dbtn('🗑️',`delAtt(${i})`,'sm r'):''}</div>`]}});
@@ -1337,7 +1340,7 @@ async function zkScan(){const box=$('#zkScanRes');box.innerHTML=`<div class="fla
 function zkDevs(){if(!Array.isArray(DB.zk_devices))DB.zk_devices=[];return DB.zk_devices}
 async function bridge(action,params,timeoutMs){const c=zkLocal();const ctl=typeof AbortController!=='undefined'?new AbortController():null;const t=setTimeout(()=>ctl&&ctl.abort(),timeoutMs||120000);
  try{const r=await fetch(c.url.replace(/\/+$/,'')+'/',action==='ping'?{signal:ctl&&ctl.signal,targetAddressSpace:'loopback'}:{method:'POST',targetAddressSpace:'loopback',body:JSON.stringify(Object.assign({action,key:c.key},params||{})),signal:ctl&&ctl.signal});const j=await r.json();if(action!=='ping'&&!j.ok)throw new Error(j.error||'error');return j}
- catch(e){if(e.name==='AbortError')throw new Error(L('Timed out — device or bridge not responding','انتهت المهلة — الجهاز أو برنامج الربط لا يستجيب'));if(/fetch|network|load failed/i.test(e.message))throw new Error(L('Bridge not running on this PC (start MODO_Bridge.bat), or the browser blocked local access — allow it when asked.','برنامج الربط غير مشغّل على هذا الجهاز (شغّل MODO_Bridge.bat) أو المتصفح منع الوصول المحلي — اسمح له عند السؤال.'));throw e}finally{clearTimeout(t)}}
+ catch(e){if(e.name==='AbortError')throw new Error(L('Timed out — device or bridge not responding','انتهت المهلة — الجهاز أو برنامج الربط لا يستجيب'));if(/fetch|network|load failed/i.test(e.message)&&action!=='ping'&&ZK.status===true)throw new Error(L('The browser blocked the request to the bridge. Click the lock icon 🔒 next to the address → Site permissions → allow "Local network access" (or "Apps on device"), then reload the page.','المتصفح منع الطلب لبرنامج الربط. اضغط على علامة القفل 🔒 بجوار العنوان ← أذونات الموقع ← اسمح بـ "الوصول إلى الشبكة المحلية" (Local network access) ثم أعد تحميل الصفحة.')+' ['+e.message+']');if(/fetch|network|load failed/i.test(e.message))throw new Error(L('Bridge not running on this PC (start MODO_Bridge.bat), or the browser blocked local access — allow it when asked.','برنامج الربط غير مشغّل على هذا الجهاز (شغّل MODO_Bridge.bat) أو المتصفح منع الوصول المحلي — اسمح له عند السؤال.'));throw e}finally{clearTimeout(t)}}
 async function zkPing(silent){try{const j=await bridge('ping',null,6000);ZK.status=true;ZK.info=j}catch(e){ZK.status=false;ZK.info={error:e.message}}if(!silent&&/^#\/(zk|settings\/zk)/.test(getHash()))render();return ZK.status}
 function zkLog(msg,ok){DB.settings.zk_log=[{t:nowDisp(),msg,ok:!!ok},...(DB.settings.zk_log||[])].slice(0,40)}
 
@@ -1690,7 +1693,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1792495042';
+const BUILD_ID='1792501879';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
