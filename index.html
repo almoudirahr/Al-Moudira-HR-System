@@ -248,7 +248,8 @@ const LEAVE_DISPLAY={Annual:'Annual Leave','Sick Leave':'Sick Leave','Insurance 
 const STATUSES=['Pending','Approved','Rejected'];
 const OKST=['Approved','Confirmed','confirmed','Pending'];
 const APPROVED=['Approved','Confirmed','confirmed'];
-const EMP_TYPES=['Regular','10years','50years','5%'];
+const EMP_TYPES=['Regular','Casual','5%','10years','50years'];
+const isCasual=e=>!!e&&((e.employee_type||'')==='Casual'||String(e.contract_type||'').toLowerCase()==='casual');
 const CONTRACT_TYPES=['Annual','Seasonal','Casual','Fixed Term','Indefinite','Part Time','Intern'];
 const MARITAL=['Single','Married','Divorced','Widowed'];
 const MILITARY=['Completed','Not Completed','Exempted'];
@@ -289,7 +290,7 @@ const JOB_FACTORS=[
  {key:'hospitality',label:'HOSPITALITY/COURTESY',ar:'الضيافة واللباقة',weight:5,max:25},{key:'appearance',label:'APPEARANCE/GROOMING',ar:'المظهر',weight:5,max:25},
  {key:'initiative',label:'INITIATIVE',ar:'المبادرة',weight:4,max:20},{key:'communication',label:'COMMUNICATION',ar:'التواصل',weight:4,max:20}];
 const EV_TOTAL_W=42, EV_TOTAL_MAX=210;
-const DATA_AR={"Front Office":"المكتب الأمامي","Housekeeping":"الإشراف الداخلي","Financial":"المالية","Service":"الخدمة","Kitchen":"المطبخ","Maintenance":"الصيانة","Laundry":"المغسلة","Steward":"الستيوارد","Security":"الأمن","Human Resources":"الموارد البشرية","Spa":"السبا","Recreation":"الترفيه","Reservation and Marketing":"الحجز والتسويق","Concierge and Trips":"الكونسيرج والرحلات","Farm Workers":"عمال المزرعة","Pending":"قيد الانتظار","Approved":"معتمد","Rejected":"مرفوض","Active":"ساري","Expired":"منتهي","Present":"حاضر","Absent":"غائب","Late":"متأخر","Leave":"إجازة","Day Off":"يوم راحة","Annual":"سنوية","Annual Leave":"إجازة سنوية","Sick Leave":"إجازة مرضية","Insurance Sick Leave":"مرضية تأمينية","Emergency":"طارئة","Emergency Leave":"إجازة طارئة","Unpaid":"بدون أجر","Unpaid Leave":"إجازة بدون أجر","Maternity":"وضع","Maternity Leave":"إجازة وضع","Bereavement":"وفاة","Bereavement Leave":"إجازة وفاة","Single":"أعزب","Married":"متزوج","Divorced":"مطلق","Widowed":"أرمل","Completed":"أدى الخدمة","Not Completed":"لم يؤدِّ","Exempted":"معفى","Regular":"منتظم","Seasonal":"موسمي","Casual":"مياومة","Fixed Term":"محدد المدة","Indefinite":"غير محدد المدة","Part Time":"دوام جزئي","Intern":"متدرب","Absence":"غياب","Late Arrival":"تأخير","Violation":"مخالفة","Misconduct":"سوء سلوك","Damage":"إتلاف","Other":"أخرى","Excellent":"ممتاز","Very Good":"جيد جداً","Good":"جيد","Acceptable":"مقبول","Poor":"ضعيف","Resigned":"مستقيل","On Leave":"في إجازة","Penalty":"جزاء","Advance":"سلفة","CL Staff":"خصم عاملين","New Hire":"معين حديثاً"};
+const DATA_AR={"5%":"ذوي الهمم 5%","10years":"10 سنوات تأمين","50years":"50 سنة فأكثر","Front Office":"المكتب الأمامي","Housekeeping":"الإشراف الداخلي","Financial":"المالية","Service":"الخدمة","Kitchen":"المطبخ","Maintenance":"الصيانة","Laundry":"المغسلة","Steward":"الستيوارد","Security":"الأمن","Human Resources":"الموارد البشرية","Spa":"السبا","Recreation":"الترفيه","Reservation and Marketing":"الحجز والتسويق","Concierge and Trips":"الكونسيرج والرحلات","Farm Workers":"عمال المزرعة","Pending":"قيد الانتظار","Approved":"معتمد","Rejected":"مرفوض","Active":"ساري","Expired":"منتهي","Present":"حاضر","Absent":"غائب","Late":"متأخر","Leave":"إجازة","Day Off":"يوم راحة","Annual":"سنوية","Annual Leave":"إجازة سنوية","Sick Leave":"إجازة مرضية","Insurance Sick Leave":"مرضية تأمينية","Emergency":"طارئة","Emergency Leave":"إجازة طارئة","Unpaid":"بدون أجر","Unpaid Leave":"إجازة بدون أجر","Maternity":"وضع","Maternity Leave":"إجازة وضع","Bereavement":"وفاة","Bereavement Leave":"إجازة وفاة","Single":"أعزب","Married":"متزوج","Divorced":"مطلق","Widowed":"أرمل","Completed":"أدى الخدمة","Not Completed":"لم يؤدِّ","Exempted":"معفى","Regular":"منتظم","Seasonal":"موسمي","Casual":"مياومة","Fixed Term":"محدد المدة","Indefinite":"غير محدد المدة","Part Time":"دوام جزئي","Intern":"متدرب","Absence":"غياب","Late Arrival":"تأخير","Violation":"مخالفة","Misconduct":"سوء سلوك","Damage":"إتلاف","Other":"أخرى","Excellent":"ممتاز","Very Good":"جيد جداً","Good":"جيد","Acceptable":"مقبول","Poor":"ضعيف","Resigned":"مستقيل","On Leave":"في إجازة","Penalty":"جزاء","Advance":"سلفة","CL Staff":"خصم عاملين","New Hire":"معين حديثاً"};
 
 /* ── Utils ─────────────────────────────────────────────────── */
 const L=(en,ar)=>S.lang==='ar'?ar:en;
@@ -630,7 +631,7 @@ ROUTES.dashboard=()=>{const E=activeEmps(),T=todaySets(),all=Object.values(DB.em
  <div class="h2">📅 ${L("Today's Attendance","حضور اليوم")}</div>
  <div class="stats">${stat('✅',L('Checked-In Today','الحاضرون اليوم'),new Set(T.att.map(a=>a.emp_id)).size,'#10B981','dash/checkin')}${stat('🏖️',L('On Leave Today','في إجازة اليوم'),new Set(T.lv.map(a=>a.emp_id)).size,'#8C3AED','dash/leave')}${stat('☀️',L('Day Off Today','راحة اليوم'),new Set([...T.doff,...T.doffAtt].map(a=>a.emp_id)).size,'#F59E0B','dash/dayoff')}${stat('🎂',L('Birthdays Today','أعياد ميلاد اليوم'),T.bd.length,'#EC4899','dash/birthday')}</div>
  <div class="h2">👤 ${L('Employee Types','أنواع الموظفين')}</div>
- <div class="stats">${stat('👔',L('Regular','منتظم'),typ('Regular'),'#3B82F6','dash/type_Regular')}${stat('🔧',L('Casual','مياومة'),E.filter(e=>String(e.contract_type).toLowerCase()==='casual').length,'#F59E0B','dash/type_casual')}${stat('♿','5%',typ('5%'),'#8B5CF6','dash/type_5%')}${stat('🏗️',L('10 yrs / 50+','10 سنوات / 50+'),typ('10years')+typ('50years'),'#EF4444','dash/type_worker')}</div>
+ <div class="stats">${stat('👔',L('Regular','منتظم'),typ('Regular'),'#3B82F6','dash/type_Regular')}${stat('🔧',L('Casual','مياومة'),E.filter(e=>isCasual(e)).length,'#F59E0B','dash/type_casual')}${stat('♿','5%',typ('5%'),'#8B5CF6','dash/type_5%')}${stat('🏗️',L('10 yrs / 50+','10 سنوات / 50+'),typ('10years')+typ('50years'),'#EF4444','dash/type_worker')}</div>
  <div class="cols2"><div class="card"><h3>🏢 ${L('Headcount by Department','توزيع الموظفين على الأقسام')}</h3>${Object.entries(byDept).sort((a,b)=>deptRank(a[0])-deptRank(b[0])).map(([n,c])=>`<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><span>${esc(tv(n))}</span><b>${c}</b></div><div class="bar"><i style="width:${c/mx*100}%"></i></div></div>`).join('')||`<p class="muted">${L('No data','لا توجد بيانات')}</p>`}</div>
  <div class="card"><h3>🔔 ${L('Expiring within 30 days','ينتهي خلال 30 يوماً')}</h3>
  ${[[cExp,'contract_end_date',L('Contract','العقد'),'contracts'],[hExp,'health_cert_expiry_date',L('Health certificate','الشهادة الصحية'),'employees'],[wExp,'work_card_expiry_date',L('Work card','كارنيه العمل'),'employees']].map(([arr,f,lb,r])=>`<div class="sec ${arr.length?'r':'g'}">${lb}: ${arr.length}</div><div class="list-links">${arr.slice(0,8).map(e=>`<a onclick="go(${q(r==='contracts'?'contracts/edit/'+e.emp_id:'employees/edit/'+e.emp_id)})">${esc(e.emp_id)} — ${esc(e.name)} <span class="pill">${fmtD(e[f])}</span></a>`).join('')}</div>`).join('')}</div></div></div>`};
@@ -644,7 +645,7 @@ ROUTES.dash=(kind)=>{const T=todaySets();let title='',cols=[],rows=[];const E=ac
  else if(kind==='pending'){title=L('Pending Approvals','بانتظار الاعتماد');cols=[L('Module','الوحدة'),L('ID','الرقم'),L('Employee','الموظف'),L('Details','التفاصيل'),L('Open','فتح')];
   [['leaves','leave_id',L('Leave','إجازة'),r=>tv(r.leave_type)+' '+fmtD(r.start_date)],['advances','advance_id',L('Advance','سلفة'),r=>money(r.amount)],['penalties','penalty_id',L('Penalty','جزاء'),r=>tv(r.penalty_type)+' '+money(r.amount)],['cl_staff','cl_id',L('CL Staff','خصم العاملين'),r=>money(r.amount)]].forEach(([c,k,lb,d])=>DB[c].filter(r=>r.status==='Pending').forEach(r=>rows.push({c:[lb,esc(r[k]),esc(empName(r.emp_id)),esc(d(r)),btn('↗',`go('${c}')`,'sm b')]})))}
  else if(kind&&kind.startsWith('type_')){const t=kind.slice(5);cols=ec;title=L('Employees','الموظفون')+': '+tv(t==='worker'?'10 yrs / 50+':t==='casual'?'Casual':t);
-  rows=E.filter(e=>t==='casual'?String(e.contract_type).toLowerCase()==='casual':t==='worker'?['10years','50years'].includes(e.employee_type):(e.employee_type||'Regular')===t).map(empRow)}
+  rows=E.filter(e=>t==='casual'?isCasual(e):t==='worker'?['10years','50years'].includes(e.employee_type):(e.employee_type||'Regular')===t).map(empRow)}
  return head('📋',title,`${rows.length} ${L('records','سجل')}`,'#1E3A5F',btn('← '+L('Back','رجوع'),"go('dashboard')",'ghost')+btn('🖨️ '+L('Print','طباعة'),`printVisible(${q(title)},'tdash')`,'ghost'))+`<div class="wrap">${searchBox('tdash')}${table(cols,rows,{id:'tdash'})}</div>`};
 
 /* ═══════════════════ Employees ═══════════════════ */
@@ -919,7 +920,7 @@ function countDaily(ds){const d=parseD(ds)||today();const dd=dmy(d);const lvOn={
  const attOn=new Set(DB.attendance.filter(a=>fmtD(a.date)===dd&&String(a.check_in||'').trim()).map(a=>String(a.emp_id)));
  const T={bud:0,act:0,cas:0,tot:0,vac:0,sick:0,abs:0,unp:0,inh:0};const rows=[];let n=0;
  Object.values(DB.departments).sort((a,b)=>deptRank(a.name)-deptRank(b.name)||String(a.name).localeCompare(b.name)).forEach(dep=>{const emps=activeEmps().filter(e=>e.department===dep.dept_id);if(!emps.length)return;
-  const cas=emps.filter(e=>String(e.contract_type).toLowerCase()==='casual').length,bud=emps.length-cas,tot=emps.length;let vac=0,sick=0,abs=0,unp=0,inh=0;
+  const cas=emps.filter(e=>isCasual(e)).length,bud=emps.length-cas,tot=emps.length;let vac=0,sick=0,abs=0,unp=0,inh=0;
   emps.forEach(e=>{const lt=String(lvOn[e.emp_id]||'').toLowerCase();if(lt){if(/annual|vacation|day off|maternity|bereavement|emergency/.test(lt))vac++;else if(/sick|insurance/.test(lt))sick++;else if(/unpaid/.test(lt))unp++;else abs++}else if(attOn.has(String(e.emp_id)))inh++;else vac++});
   rows.push({c:[++n,esc(tv(dep.name)),bud,0,inh,cas,tot,vac,sick,abs,unp,0,0,0,inh,(tot?Math.round(vac/tot*100):0)+'%',(bud?Math.round(inh/bud*100):0)+'%']});
   Object.assign(T,{bud:T.bud+bud,act:T.act+inh,cas:T.cas+cas,tot:T.tot+tot,vac:T.vac+vac,sick:T.sick+sick,abs:T.abs+abs,unp:T.unp+unp,inh:T.inh+inh})});
@@ -1677,7 +1678,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1792492499';
+const BUILD_ID='1792493136';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
