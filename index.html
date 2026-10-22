@@ -1720,10 +1720,14 @@ function shiftGrace(){const g=DB.settings.shift_grace;return g==null||g===''?15:
 const cdiff=(a,b)=>((a-b+1440+720)%1440)-720;          // signed circular difference in minutes
 function shiftOf(a,e){if(!a)return null;e=e||getEmp(a.emp_id);const ALL=SHIFTS(),S3=ROT();
  if(e&&e.shift){const f=ALL.find(s=>s.id===e.shift);if(f)return f}
- if(isOfficeEmp(e))return ALL.find(s=>s.id==='O');
+ // office departments work 09–17, but some of their staff also cover the evening / night → choose among Office, Evening, Night
+ const C=isOfficeEmp(e)?ALL.filter(s=>s.id!=='M'):S3;
  const ci=timeMin(a.check_in),co=timeMin(a.check_out);
- if(ci!=null)return S3.slice().sort((x,y)=>Math.abs(cdiff(ci,timeMin(x.start)))-Math.abs(cdiff(ci,timeMin(y.start))))[0];
- if(co!=null)return S3.slice().sort((x,y)=>Math.abs(cdiff(co,timeMin(x.end)))-Math.abs(cdiff(co,timeMin(y.end))))[0];return null}
+ if(ci==null&&co==null&&isOfficeEmp(e))return ALL.find(s=>s.id==='O');
+ if(ci!=null){const sc=C.map(s=>({s,d:cdiff(ci,timeMin(s.start))}));                    // d = minutes after shift start (negative = came early)
+  const fit=sc.filter(x=>x.d>=-90&&x.d<=8*60).sort((x,y)=>Math.abs(x.d)-Math.abs(y.d));    // a shift you came up to 1.5h early or up to 8h late for
+  return (fit[0]||sc.sort((x,y)=>Math.abs(x.d)-Math.abs(y.d))[0]).s}
+ if(co!=null)return C.slice().sort((x,y)=>Math.abs(cdiff(co,timeMin(x.end)))-Math.abs(cdiff(co,timeMin(y.end))))[0];return null}
 function shiftLate(a,sh){sh=sh||shiftOf(a);const ci=timeMin(a&&a.check_in);if(!sh||ci==null)return 0;const d=cdiff(ci,timeMin(sh.start));return d>shiftGrace()?d:0}
 function shiftEarly(a,sh){sh=sh||shiftOf(a);const co=timeMin(a&&a.check_out);if(!sh||co==null||!a.check_in)return 0;const d=cdiff(timeMin(sh.end),co);return d>0&&d<480?d:0}
 function shiftName(sh){return sh?L(sh.en,sh.ar):'—'}
@@ -1810,7 +1814,8 @@ async function zkAutoEnable(on){const c=typeof onCfg==='function'?onCfg():{};if(
   notify(on?L('Background pull is ON — this PC pulls the devices by itself, the program does not need to be open.','السحب في الخلفية شغال — الكمبيوتر ده هيسحب البصمة لوحده من غير ما البرنامج يكون مفتوح.'):L('Background pull is OFF','السحب في الخلفية متوقف'),'ok')}
  catch(e){notify('❌ '+e.message+(/unknown action/i.test(e.message)?' — '+L('download the new MODO_Bridge.bat and run it once','نزّل MODO_Bridge.bat الجديد وشغّله مرة واحدة'):''),'err')}render()}
 async function zkAutoNow(){try{ZKA.st=await bridge('auto_now',{},8000);notify(L('Pulling now in the background…','جاري السحب في الخلفية الآن…'),'info');setTimeout(zkAutoStatus,15000)}catch(e){notify('❌ '+e.message,'err')}}
-function zkAutoCard(){const st=ZKA.st;if(ZK.status!==true)return '<div id="zkAutoBox"></div>';
+function zkAutoCard(){const st=ZKA.st;
+ if(ZK.status!==true)return `<div id="zkAutoBox" class="card" style="padding:12px 16px;border:2px dashed #CBD5E1"><b>🔁 ${L('Background pull (program does not need to be open)','السحب في الخلفية (من غير ما البرنامج يكون مفتوح)')}</b><div class="muted" style="margin-top:6px">${ZK.status===null?'…':L('The fingerprint bridge is not running on THIS computer, so this setting cannot be changed from here. Open the program on the PC that is on the fingerprint network (where MODO_Bridge.bat is installed) and the options appear here.','برنامج ربط البصمة مش شغال على الكمبيوتر ده، فالإعداد ده مش هيظهر هنا. افتح البرنامج على الكمبيوتر اللي على شبكة البصمة (اللي متثبت عليه MODO_Bridge.bat) وهتلاقي الاختيارات هنا.')}</div></div>`;
  if(!st){if(!ZKA.err)setTimeout(zkAutoStatus,50);return `<div id="zkAutoBox" class="card" style="padding:10px 16px"><b>🔁 ${L('Background pull','السحب في الخلفية')}</b> <span class="muted">${ZKA.err?esc(L('needs bridge v1.4 — download the new MODO_Bridge.bat and run it once','محتاج برنامج ربط إصدار 1.4 — نزّل MODO_Bridge.bat الجديد وشغّله مرة واحدة')):'…'}</span></div>`}
  return `<div id="zkAutoBox" class="card" style="padding:12px 16px;border:2px solid ${st.enabled?'#10B981':'#E2E8F0'}"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b>🔁 ${L('Background pull (program does not need to be open)','السحب في الخلفية (من غير ما البرنامج يكون مفتوح)')}</b>
   ${st.enabled?`<span class="badge ok">● ${L('ON','شغال')}${st.live?' ⚡ '+L('live','لحظي'):''} — ${L('check every','مراجعة كل')} ${st.minutes} ${L('min','د')}</span>`:`<span class="badge mut">${L('OFF','متوقف')}</span>`}<span style="flex:1"></span>
@@ -1829,7 +1834,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1792672076';
+const BUILD_ID='1792674127';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
