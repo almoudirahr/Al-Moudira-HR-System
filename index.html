@@ -329,6 +329,8 @@ function inPeriod(d,m,y){if(!m||!y||m==='All')return true;d=parseD(d);if(!d)retu
 function daysInPeriod(s,e,m,y){s=parseD(s);e=parseD(e);if(!s||!e)return 0;if(e<s)[s,e]=[e,s];if(!m||!y)return daysBetween(s,e)+1;const [ps,pe]=periodBounds(m,y);const a=s>ps?s:ps,b=e<pe?e:pe;return a>b?0:daysBetween(a,b)+1}
 const leaveDays=l=>{const s=parseD(l.start_date),e=parseD(l.end_date);return s&&e?daysBetween(s,e)+1:0};
 function timeMin(t){if(t==null||t==='')return null;const m=String(t).trim().toUpperCase().match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/);if(!m)return null;let h=+m[1];if(m[3]){if(m[3]==='PM'&&h<12)h+=12;if(m[3]==='AM'&&h===12)h=0}return h*60+(+m[2])}
+/* 12-hour display with ص/م (AM/PM) — storage stays 24h */
+const t12=t=>{const x=timeMin(t);if(x==null)return t||'';let h=Math.floor(x/60);const m=x%60,pm=h>=12;h=h%12||12;return `<span dir="ltr" style="white-space:nowrap">${h}:${pad(m)} <small style="font-weight:700;color:${pm?'#7C3AED':'#0369A1'}">${pm?L('PM','م'):L('AM','ص')}</small></span>`};
 const to24=t=>{const x=timeMin(t);return x==null?(t||''):pad(Math.floor(x/60))+':'+pad(x%60)};
 function durMin(a,b){const x=timeMin(a),y=timeMin(b);if(x==null||y==null)return 0;let d=y-x;if(d<0)d+=1440;return d>0&&d<=18*60?d:0}   // >18h = wrong punch, not a real shift
 const durStr=m=>m?pad(Math.floor(m/60))+':'+pad(m%60):'';
@@ -645,7 +647,7 @@ ROUTES.dashboard=()=>{const E=activeEmps(),T=todaySets(),all=Object.values(DB.em
 ROUTES.dash=(kind)=>{const T=todaySets();let title='',cols=[],rows=[];const E=activeEmps();
  const empRow=e=>({c:[esc(e.emp_id),esc(e.name),esc(tv(empDept(e))),esc(e.position||''),fmtD(e.hire_date),money(e.salary)]});
  const ec=[L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Position','الوظيفة'),L('Hire Date','التعيين'),L('Salary','المرتب')];
- if(kind==='checkin'){title=L('Checked-In Today','الحاضرون اليوم');cols=[L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Check In','الدخول'),L('Check Out','الخروج')];rows=T.att.map(a=>{const e=getEmp(a.emp_id);return {c:[esc(a.emp_id),esc(e?e.name:'—'),esc(tv(empDept(e))),to24(a.check_in),to24(a.check_out)||'—']}})}
+ if(kind==='checkin'){title=L('Checked-In Today','الحاضرون اليوم');cols=[L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Check In','الدخول'),L('Check Out','الخروج')];rows=T.att.map(a=>{const e=getEmp(a.emp_id);return {c:[esc(a.emp_id),esc(e?e.name:'—'),esc(tv(empDept(e))),t12(a.check_in),t12(a.check_out)||'—']}})}
  else if(kind==='leave'||kind==='dayoff'){title=kind==='leave'?L('On Leave Today','في إجازة اليوم'):L('Day Off Today','راحة اليوم');cols=[L('Code','الكود'),L('Name','الاسم'),L('Type','النوع'),L('From','من'),L('To','إلى')];
   rows=(kind==='leave'?T.lv:T.doff).map(l=>({c:[esc(l.emp_id),esc(empName(l.emp_id)),esc(tv(l.leave_type)),fmtD(l.start_date),fmtD(l.end_date)]}));if(kind==='dayoff')T.doffAtt.forEach(a=>rows.push({c:[esc(a.emp_id),esc(empName(a.emp_id)),tv('Day Off'),fmtD(a.date),fmtD(a.date)]}))}
  else if(kind==='birthday'){title=L('Birthdays Today 🎉','أعياد ميلاد اليوم 🎉');cols=[L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Birth Date','الميلاد'),L('Age','العمر')];rows=T.bd.map(e=>({c:[esc(e.emp_id),'🎂 '+esc(e.name),esc(tv(empDept(e))),fmtD(e.birth_date),ageOf(e.birth_date)]}))}
@@ -882,7 +884,7 @@ ROUTES.attendance=(act,id)=>{if(act==='new'||act==='edit')return attForm(act==='
  const aq=String(S.srch.tatt||'').trim().toLowerCase();if(aq){const toks=aq.split(/\s+/);const keep=idx.filter(i=>{const r=DB.attendance[i],e=getEmp(r.emp_id);const h=[r.emp_id,e&&e.name,e&&e.arabic_name,tv(empDept(e)),fmtD(r.date),r.status,attStatus(r),r.source].join(' ').toLowerCase();return toks.every(t=>h.includes(t))});idx.length=0;keep.forEach(i=>idx.push(i))}
  const shown=idx.slice(0,3000);let totMin=0;
  const rows=shown.map(i=>{const a=DB.attendance[i],e=getEmp(a.emp_id);const m=durMin(a.check_in,a.check_out);totMin+=m;const st=attStatus(a);
-  return {c:[esc(a.emp_id),esc(e?e.name:'—'),esc(tv(empDept(e))),fmtD(a.date),to24(a.check_in)||'—',to24(a.check_out)||'—',durStr(m)||'—',shiftBadge(a,e),lateCell(a,e),badge(st,st==='Present'?'ok':st==='Day Off'?'warn':st==='Absent'?'bad':'info'),srcLabel(a.source),`<div class="acts">${btn('✏️',`go('attendance/edit/${i}')`,'sm b')}${isAdmin()?dbtn('🗑️',`delAtt(${i})`,'sm r'):''}</div>`]}});
+  return {c:[esc(a.emp_id),esc(e?e.name:'—'),esc(tv(empDept(e))),fmtD(a.date),t12(a.check_in)||'—',t12(a.check_out)||'—',durStr(m)||'—',shiftBadge(a,e),lateOnly(a,e),earlyOnly(a,e),badge(st,st==='Present'?'ok':st==='Day Off'?'warn':st==='Absent'?'bad':'info'),srcLabel(a.source),`<div class="acts">${btn('✏️',`go('attendance/edit/${i}')`,'sm b')}${isAdmin()?dbtn('🗑️',`delAtt(${i})`,'sm r'):''}</div>`]}});
  const mo=today().getMonth()+1,yr=today().getFullYear();
  return head('📅',L('Attendance','الحضور والانصراف'),L('Track employee attendance','متابعة حضور الموظفين'),'#0EA5E9',btn('➕ '+L('Record','تسجيل'),"go('attendance/new')",'g')+btn('🖐️ '+L('Sync Fingerprint','سحب البصمة'),'zkSyncAll()','v')+btn('📱 '+L('Sync Mobile Punches','سحب بصمات الموبايل'),"mpCfg().gsheet_url?mpSync(false).then(()=>render()):notify(L('Mobile punch is not linked yet — Settings → Mobile GPS Punch','لم يتم ربط البصمة عبر الموبايل بعد — الإعدادات ← البصمة عبر الموبايل'),'err')",'t')+btn('📥 '+L('Import Fingerprint File','استيراد ملف البصمة'),"go('attendance/import')",'ghost')+btn('📊 '+L('Employee Count Daily','العدد اليومي'),"go('attendance/count')",'y')+stdBtns(L('Attendance Report','تقرير الحضور'),'tatt'))
  +`<div class="wrap"><div id="zkRun">${typeof zkRunHTML==='function'?zkRunHTML():''}</div><div class="muted" style="font-size:12px;margin-bottom:8px">🔁 ${L('Auto','تلقائي')}: ${L('mobile every','الموبايل كل')} ${num(mpCfg().auto_sync_minutes)?num(mpCfg().auto_sync_minutes)+' '+L('min','د'):L('off','متوقف')} · ${L('device every','الجهاز كل')} ${num(DB.settings.zk_auto_pull_minutes??15)?num(DB.settings.zk_auto_pull_minutes??15)+' '+L('min','د'):L('off','متوقف')} · ${L('last','آخر سحب')}: ${esc(DB.settings.zk_last_sync||'—')}</div><div class="atb">
@@ -892,7 +894,7 @@ ROUTES.attendance=(act,id)=>{if(act==='new'||act==='edit')return attForm(act==='
  </div>
  ${searchBox('tatt',L('Search by code, name, department, date, status...','ابحث بالكود أو الاسم أو القسم أو التاريخ أو الحالة...'))}
  <div class="muted" style="margin-bottom:6px">${L('Rows','السجلات')}: <b id="cnt_tatt">${shown.length}</b>${idx.length>shown.length?` (${L('showing latest','عرض أحدث')} 3000 ${L('of','من')} ${idx.length})`:''} — 🕒 ${L('Total work hours','إجمالي ساعات العمل')}: <b>${Math.floor(totMin/60)}h ${pad(totMin%60)}m</b></div>
- ${table([L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Date','التاريخ'),L('Check In','الدخول'),L('Check Out','الخروج'),L('Work Hours','ساعات العمل'),L('Shift','الوردية'),L('Late / Early (h:mm)','تأخير / انصراف مبكر (س:د)'),L('Status','الحالة'),L('Source','المصدر'),L('Actions','إجراءات')],rows,{id:'tatt'})}</div>`};
+ ${table([L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Date','التاريخ'),L('Check In','الدخول'),L('Check Out','الخروج'),L('Work Hours','ساعات العمل'),L('Shift','الوردية'),L('Late (h:mm)','تأخير (س:د)'),L('Left early (h:mm)','انصراف مبكر (س:د)'),L('Status','الحالة'),L('Source','المصدر'),L('Actions','إجراءات')],rows,{id:'tatt'})}</div>`};
 function finalizeDay(){let a=parseD($('#dofd').value),b=parseD(($('#dofd2')||{}).value)||a;if(!a){notify(L('Choose a date','اختر التاريخ'),'err');return}if(b<a){const t=a;a=b;b=t}const y=addDays(today(),-1);if(a>y){notify(L('Only completed days (before today) can be finalized','يمكن إقفال الأيام المكتملة فقط (قبل اليوم)'),'err');return}if(b>y)b=y;
  if((b-a)/864e5>62){notify(L('Maximum 2 months at a time','الحد الأقصى شهرين في المرة'),'err');return}
  let n=0,days=0;for(let d=new Date(a);d<=b;d=addDays(d,1)){n+=applyDayOff(d).length;days++}
@@ -1731,8 +1733,10 @@ function shiftOf(a,e){if(!a)return null;e=e||getEmp(a.emp_id);const ALL=SHIFTS()
 function shiftLate(a,sh){sh=sh||shiftOf(a);const ci=timeMin(a&&a.check_in);if(!sh||ci==null)return 0;const d=cdiff(ci,timeMin(sh.start));return d>shiftGrace()?d:0}
 function shiftEarly(a,sh){sh=sh||shiftOf(a);const co=timeMin(a&&a.check_out);if(!sh||co==null||!a.check_in)return 0;const d=cdiff(timeMin(sh.end),co);return d>0&&d<480?d:0}
 function shiftName(sh){return sh?L(sh.en,sh.ar):'—'}
-function shiftBadge(a,e){const sh=shiftOf(a,e);if(!sh)return '—';const ic={M:'🌅',E:'🌇',N:'🌙',O:'🏢'}[sh.id]||'';return `<span class="badge mut" title="${esc(sh.start+' – '+sh.end)}">${ic} ${esc(shiftName(sh))}</span>`}
+function shiftBadge(a,e){const sh=shiftOf(a,e);if(!sh)return '—';const ic={M:'🌅',E:'🌇',N:'🌙',O:'🏢'}[sh.id]||'';const h12=t=>{const x=timeMin(t);let h=Math.floor(x/60);const pm=h>=12;h=h%12||12;return h+(x%60?':'+pad(x%60):'')+(pm?L('pm','م'):L('am','ص'))};return `<span class="badge mut" title="${esc(sh.start+' – '+sh.end)}">${ic} ${esc(shiftName(sh))} <small style="opacity:.75">${h12(sh.start)}–${h12(sh.end)}</small></span>`}
 const hm=m=>`${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`;   // 154 → 2:34
+function lateOnly(a,e){const sh=shiftOf(a,e);const l=shiftLate(a,sh);return l?`<span style="color:#B91C1C;font-weight:700" title="${esc(L('Late','تأخير')+' '+l+' '+L('min','دقيقة')+' — '+L('shift starts','بداية الوردية')+' '+(sh?sh.start:''))}">⏰ ${hm(l)}</span>`:'—'}
+function earlyOnly(a,e){const sh=shiftOf(a,e);const x=shiftEarly(a,sh);return x?`<span style="color:#B45309;font-weight:700" title="${esc(L('Left early','انصراف مبكر')+' '+x+' '+L('min','دقيقة')+' — '+L('shift ends','نهاية الوردية')+' '+(sh?sh.end:''))}">↩ ${hm(x)}</span>`:'—'}
 function lateCell(a,e){const sh=shiftOf(a,e);const l=shiftLate(a,sh),x=shiftEarly(a,sh);const out=[];if(l)out.push(`<span style="color:#B91C1C;font-weight:700" title="${esc(L('Late','تأخير')+' '+l+' '+L('min','دقيقة'))}">⏰ ${hm(l)}</span>`);if(x)out.push(`<span style="color:#B45309;font-weight:700" title="${esc(L('Left early','انصراف مبكر')+' '+x+' '+L('min','دقيقة'))}">↩ ${hm(x)}</span>`);return out.join(' ')||'—'}
 
 /* night shift: a morning punch that closes last night's shift belongs to yesterday */
@@ -1782,7 +1786,7 @@ function saveShifts(){const f=document.getElementById('shf');DB.settings.shifts=
 const _dashM=ROUTES.dash;ROUTES.dash=(kind)=>{if(kind!=='m_att'&&kind!=='m_abs')return _dashM(kind);const t=today();
  const recs=DB.attendance.filter(a=>inCurMonth(a.date)&&(kind==='m_att'?!!String(a.check_in||'').trim():a.status==='Absent')).sort((a,b)=>(parseD(b.date)||0)-(parseD(a.date)||0)||String(a.emp_id).localeCompare(String(b.emp_id),undefined,{numeric:true}));
  const title=(kind==='m_att'?L('Present Days','أيام الحضور'):L('Absent Days','أيام الغياب'))+' — '+monthName(t.getMonth()+1)+' '+t.getFullYear();
- const rows=recs.slice(0,5000).map(a=>{const e=getEmp(a.emp_id);return {c:[esc(a.emp_id),esc(e?e.name:'—'),esc(tv(empDept(e))),fmtD(a.date),to24(a.check_in)||'—',to24(a.check_out)||'—',kind==='m_att'?shiftBadge(a,e):esc(tv(a.status))]}});
+ const rows=recs.slice(0,5000).map(a=>{const e=getEmp(a.emp_id);return {c:[esc(a.emp_id),esc(e?e.name:'—'),esc(tv(empDept(e))),fmtD(a.date),t12(a.check_in)||'—',t12(a.check_out)||'—',kind==='m_att'?shiftBadge(a,e):esc(tv(a.status))]}});
  return head(kind==='m_att'?'✅':'❌',title,`${recs.length} ${L('records','سجل')}`,'#1E3A5F',btn('← '+L('Back','رجوع'),"go('dashboard')",'ghost')+btn('🖨️ '+L('Print','طباعة'),`printVisible(${q(title)},'tdash')`,'ghost'))+`<div class="wrap">${searchBox('tdash')}${table([L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Date','التاريخ'),L('Check In','الدخول'),L('Check Out','الخروج'),kind==='m_att'?L('Shift','الوردية'):L('Status','الحالة')],rows,{id:'tdash'})}</div>`};
 /* ═══════════ Background fingerprint pull (bridge → server inbox → merged here) ═══════════
    The bridge on the hotel PC pulls the devices by itself and drops new punches into DB.zk_inbox
@@ -1834,7 +1838,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1792674127';
+const BUILD_ID='1792674662';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
