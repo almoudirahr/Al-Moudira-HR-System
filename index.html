@@ -69,7 +69,7 @@ textarea{min-height:72px;resize:vertical}
 .search{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--bd);border-radius:10px;padding:4px 12px;margin-bottom:10px}
 .search input{border:0;box-shadow:none!important;padding:8px 2px}
 @keyframes zkspin{to{transform:rotate(360deg)}}
-.atb{display:grid;grid-template-columns:1.35fr 1fr 1fr;background:#fff;border:1px solid var(--bd);border-radius:var(--r);margin-bottom:12px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.atb{display:grid;grid-template-columns:1.2fr 1.2fr 1fr;background:#fff;border:1px solid var(--bd);border-radius:var(--r);margin-bottom:12px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04)}
 .atb-s{padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
 .atb-s+.atb-s{border-inline-start:1px solid var(--bd)}
 .atb-h{font-weight:800;font-size:13.5px;color:#1E293B;display:flex;align-items:center;gap:6px}
@@ -367,7 +367,7 @@ function mkStore(kind){const real=()=>{try{const s=window[kind];const t='__t';s.
 const ST=mkStore('localStorage'),SS=mkStore('sessionStorage');
 
 /* ── Database ──────────────────────────────────────────────── */
-const EMP_DEF={emp_id:'',name:'',arabic_name:'',department:'',position:'',salary:0,hire_date:'',email:'',phone:'',family_name:'',mother_name:'',birth_date:'',health_cert_issue_date:'',health_cert_expiry_date:'',health_cert_renewal_date:'',military_service_cert_date:'',military_service_status:'Not Completed',qualification:'',qualification_date:'',measurement_cert_issue_date:'',measurement_cert_expiry_date:'',measurement_cert_renewal_date:'',skill_cert_issue_date:'',skill_cert_expiry_date:'',skill_cert_renewal_date:'',registration_cert_number:'',registration_cert_issue_date:'',registration_cert_expiry_date:'',registration_cert_issue_area:'',contract_start_date:'',contract_end_date:'',contract_type:'',contract_renewal_date:'',resignation_date:'',resignation_reason:'',national_id:'',insurance_number:'',national_id_issue_date:'',national_id_expiry_date:'',address:'',city:'',employee_photo:'',transportation:0,allowances:0,service_allowance:0,deductions:0,incentives:0,marital_status:'Single',number_of_spouses:0,number_of_children:0,tax_insurance_status:'both',work_card_number:'',work_card_issue_date:'',work_card_expiry_date:'',work_card_issue_area:'',service_charge_eligible:true,salary_active:true,insurance_min_base:0,insurance_max_base:0,employee_type:'Regular',emp_class:'',absent_days:0,absent_deduction:0,sick_leave_days:0,sick_leave_deduction:0,insurance_sick_leave_days:0,insurance_sick_leave_deduction:0,unpaid_leave_days:0,unpaid_leave_deduction:0,job_title:'',leave_balance_adjustment:0,bank_code:'',svc_override:null,hol_override:null,dof_override:null,ann_override:null,tot_override:null,used_override:null,rem_override:null,show_in_situations:false};
+const EMP_DEF={emp_id:'',name:'',arabic_name:'',department:'',position:'',salary:0,hire_date:'',email:'',phone:'',family_name:'',mother_name:'',birth_date:'',health_cert_issue_date:'',health_cert_expiry_date:'',health_cert_renewal_date:'',military_service_cert_date:'',military_service_status:'Not Completed',qualification:'',qualification_date:'',measurement_cert_issue_date:'',measurement_cert_expiry_date:'',measurement_cert_renewal_date:'',skill_cert_issue_date:'',skill_cert_expiry_date:'',skill_cert_renewal_date:'',registration_cert_number:'',registration_cert_issue_date:'',registration_cert_expiry_date:'',registration_cert_issue_area:'',contract_start_date:'',contract_end_date:'',contract_type:'',contract_renewal_date:'',resignation_date:'',resignation_reason:'',national_id:'',insurance_number:'',national_id_issue_date:'',national_id_expiry_date:'',address:'',city:'',employee_photo:'',transportation:0,allowances:0,service_allowance:0,deductions:0,incentives:0,marital_status:'Single',number_of_spouses:0,number_of_children:0,tax_insurance_status:'both',work_card_number:'',work_card_issue_date:'',work_card_expiry_date:'',work_card_issue_area:'',service_charge_eligible:true,salary_active:true,insurance_min_base:0,insurance_max_base:0,employee_type:'Regular',emp_class:'',shift:'',absent_days:0,absent_deduction:0,sick_leave_days:0,sick_leave_deduction:0,insurance_sick_leave_days:0,insurance_sick_leave_deduction:0,unpaid_leave_days:0,unpaid_leave_deduction:0,job_title:'',leave_balance_adjustment:0,bank_code:'',svc_override:null,hol_override:null,dof_override:null,ann_override:null,tot_override:null,used_override:null,rem_override:null,show_in_situations:false};
 function blankDB(){return {employees:{},departments:{},attendance:[],leaves:[],payrolls:[],advances:[],cl_staff:[],penalties:[],password:'admin123',user_passwords:{},activity_log:[],evaluations:[],contract_renewals:[],change_of_status:[],language:'ar',job_titles:[],disabled_users:[],user_permissions:{},monthly_snapshots:{},zk_devices:[],insurance_settings:{min:2700,max:16700},custom_users:{},archived_employees:{},mobile_punch:{},mobile_punch_pins:{},mobile_punch_log:[],mobile_leave_map:{},settings:{logo:'',company:'Hadayek Tiba for Tourism — Hotel Al Moudira',company_ar:'شركة حدائق طيبة للسياحة — فندق المديرة',signatory:'حمدي أحمد عيسى عبد العظيم'}}}
 function normalizeDB(d){const b=blankDB();if(!d||typeof d!=='object')d={};for(const k in b)if(d[k]==null)d[k]=b[k];
  for(const k in b.settings)if(d.settings[k]==null)d.settings[k]=b.settings[k];
@@ -545,14 +545,16 @@ function leaveBalance(e){const hd=parseD(e.hire_date);const mw=hd?Math.max(0,mon
  let hol=15,dof=52,ann,notes;if(mw<6){ann=0;dof=mw*4;notes=L(`Probation — Day Off only: ${dof}`,`فترة اختبار — راحات فقط: ${dof}`)}else if(mw<12){ann=r2((mw-5)*ti.ann/12);notes=L(`Prorated — ${mw-5} months`,`نسبي — ${mw-5} شهر`)}else{ann=ti.ann;notes=L('Full annual balance','رصيد سنوي كامل')}
  let svc=fmtService(mw);if(e.svc_override!=null&&e.svc_override!=='')svc=String(e.svc_override);if(e.hol_override!=null&&e.hol_override!=='')hol=num(e.hol_override);if(e.ann_override!=null&&e.ann_override!=='')ann=num(e.ann_override);
  const sp=leaveSplit(e.emp_id);let taken=0,base=dof;if(e.dof_override!=null&&e.dof_override!==''){const rem=num(e.dof_override);taken=Math.max(0,r2(52-Math.min(rem,52)));base=52}
- const doCons=r2(taken+sp.dayoff+sp.annDO),used=r2(doCons+sp.annAnn),total=r2(hol+base+ann),adj=num(e.leave_balance_adjustment);
- return {mw,svc,type:ti.label,hol,dofBase:base,dof:Math.max(0,r2(base-doCons)),ann:Math.max(0,r2(ann-sp.annAnn)),annFull:ann,total,used,adj,remaining:Math.max(0,r2(total+adj-used)),notes,probation:mw<6}}
+ const doAll=r2(taken+sp.dayoff+sp.annDO);const over=Math.max(0,r2(doAll-base));const doCons=r2(doAll-over);   // Day Off used beyond its balance → taken from the annual balance
+ const annCons=r2(sp.annAnn+over),used=r2(doCons+annCons),total=r2(hol+base+ann),adj=num(e.leave_balance_adjustment);
+ if(over>0)notes+=' — '+L(`Day Off finished: ${over} day(s) deducted from annual`,`انتهى رصيد الراحات: خُصم ${over} يوم من السنوي`);
+ return {mw,svc,type:ti.label,hol,dofBase:base,dof:Math.max(0,r2(base-doCons)),ann:Math.max(0,r2(ann-annCons)),annFull:ann,over,total,used,adj,remaining:Math.max(0,r2(total+adj-used)),notes,probation:mw<6}}
 function annualEntitlement(e,at){const hd=parseD(e.hire_date)||today();const mw=monthsBetween(hd,at||today());const ti=typeInfo(e.employee_type);if(mw<6)return 0;if(mw<12)return r2((mw-5)*ti.ann/12);return ti.ann}
 function usedAnnualDayOff(id){return DB.leaves.filter(l=>String(l.emp_id)===String(id)&&APPROVED.includes(l.status)&&['Annual','Day Off'].includes(l.leave_type)).reduce((s,l)=>s+leaveDays(l),0)}
 function applyDayOff(d){d=parseD(d);if(!d)return [];const ds=dmy(d);const out=[];
  for(const e of activeEmps()){if(DB.attendance.some(a=>String(a.emp_id)===String(e.emp_id)&&fmtD(a.date)===ds))continue;const lt=approvedLeaveOn(e.emp_id,d);
   if(lt){DB.attendance.push({emp_id:e.emp_id,date:ds,check_in:'',check_out:'',status:lt});continue}
-  DB.attendance.push({emp_id:e.emp_id,date:ds,check_in:'',check_out:'',status:'Day Off'});const cur=e.dof_override!=null&&e.dof_override!==''?num(e.dof_override):52;e.dof_override=Math.max(0,r2(cur-1));out.push(e.name)}
+  DB.attendance.push({emp_id:e.emp_id,date:ds,check_in:'',check_out:'',status:'Day Off'});const cur=e.dof_override!=null&&e.dof_override!==''?num(e.dof_override):52;e.dof_override=r2(cur-1);out.push(e.name)}
  return out}
 
 /* ═══════════════════ Shell, router, login ═══════════════════ */
@@ -602,7 +604,7 @@ function logout(){log('Logout',`User '${S.user}' logged out`,'auth');saveDB();S.
 const ROUTES={};
 function render(){applyDir();const app=$('#app');
  if(!S.user){app.innerHTML=loginPage();app.dataset.ok=1;const a=S.tmp.after;S.tmp.after=null;if(a)try{a()}catch(e){}return}
- const H=getHash();S.rendered=H;const parts=H.replace(/^#\/?/,'').split('/').map(x=>decodeURIComponent(x));let [p0,p1,p2,p3]=parts;
+ const H=getHash();S.rendered=H;const parts=H.replace(/^#\/?/,'').split('/').map(x=>{try{return decodeURIComponent(x)}catch(e){return x}});let [p0,p1,p2,p3]=parts;
  if(!p0){p0=allowed('dashboard')?'dashboard':(NAV.find(n=>allowed(n[0]))||NAV[0])[5]}
  const key=ROUTE_KEY[p0];let html;
  if(key&&!allowed(key))html=head('🔒',L('Access denied','غير مسموح'),L('You do not have permission for this page.','ليس لديك صلاحية لهذه الصفحة.'),'#7F1D1D');
@@ -634,7 +636,7 @@ ROUTES.dashboard=()=>{const E=activeEmps(),T=todaySets(),all=Object.values(DB.em
  <div class="h2">📅 ${L("Today's Attendance","حضور اليوم")}</div>
  <div class="stats">${stat('✅',L('Checked-In Today','الحاضرون اليوم'),new Set(T.att.map(a=>a.emp_id)).size,'#10B981','dash/checkin')}${stat('🏖️',L('On Leave Today','في إجازة اليوم'),new Set(T.lv.map(a=>a.emp_id)).size,'#8C3AED','dash/leave')}${stat('☀️',L('Day Off Today','راحة اليوم'),new Set([...T.doff,...T.doffAtt].map(a=>a.emp_id)).size,'#F59E0B','dash/dayoff')}${stat('🎂',L('Birthdays Today','أعياد ميلاد اليوم'),T.bd.length,'#EC4899','dash/birthday')}</div>
  <div class="h2">👤 ${L('Employee Types','أنواع الموظفين')}</div>
- <div class="stats">${stat('👔',L('Regular','منتظم'),typ('Regular'),'#3B82F6','dash/type_Regular')}${stat('🔧',L('Casual','مياومة'),E.filter(e=>isCasual(e)).length,'#F59E0B','dash/type_casual')}${stat('♿','5%',typ('5%'),'#8B5CF6','dash/type_5%')}${stat('🏗️',L('10 yrs / 50+','10 سنوات / 50+'),typ('10years')+typ('50years'),'#EF4444','dash/type_worker')}</div>
+ <div class="stats">${stat('👔',L('Regular','منتظم'),typ('Regular'),'#3B82F6','dash/type_Regular')}${stat('🔧',L('Casual','مياومة'),E.filter(e=>isCasual(e)).length,'#F59E0B','dash/type_casual')}${stat('♿','5%',typ('5%'),'#8B5CF6','dash/type_pct5')}${stat('🏗️',L('10 yrs / 50+','10 سنوات / 50+'),typ('10years')+typ('50years'),'#EF4444','dash/type_worker')}</div>
  <div class="cols2"><div class="card"><h3>🏢 ${L('Headcount by Department','توزيع الموظفين على الأقسام')}</h3>${Object.entries(byDept).sort((a,b)=>deptRank(a[0])-deptRank(b[0])).map(([n,c])=>`<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><span>${esc(tv(n))}</span><b>${c}</b></div><div class="bar"><i style="width:${c/mx*100}%"></i></div></div>`).join('')||`<p class="muted">${L('No data','لا توجد بيانات')}</p>`}</div>
  <div class="card"><h3>🔔 ${L('Expiring within 30 days','ينتهي خلال 30 يوماً')}</h3>
  ${[[cExp,'contract_end_date',L('Contract','العقد'),'contracts'],[hExp,'health_cert_expiry_date',L('Health certificate','الشهادة الصحية'),'employees'],[wExp,'work_card_expiry_date',L('Work card','كارنيه العمل'),'employees']].map(([arr,f,lb,r])=>`<div class="sec ${arr.length?'r':'g'}">${lb}: ${arr.length}</div><div class="list-links">${arr.slice(0,8).map(e=>`<a onclick="go(${q(r==='contracts'?'contracts/edit/'+e.emp_id:'employees/edit/'+e.emp_id)})">${esc(e.emp_id)} — ${esc(e.name)} <span class="pill">${fmtD(e[f])}</span></a>`).join('')}</div>`).join('')}</div></div></div>`};
@@ -647,7 +649,7 @@ ROUTES.dash=(kind)=>{const T=todaySets();let title='',cols=[],rows=[];const E=ac
  else if(kind==='birthday'){title=L('Birthdays Today 🎉','أعياد ميلاد اليوم 🎉');cols=[L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Birth Date','الميلاد'),L('Age','العمر')];rows=T.bd.map(e=>({c:[esc(e.emp_id),'🎂 '+esc(e.name),esc(tv(empDept(e))),fmtD(e.birth_date),ageOf(e.birth_date)]}))}
  else if(kind==='pending'){title=L('Pending Approvals','بانتظار الاعتماد');cols=[L('Module','الوحدة'),L('ID','الرقم'),L('Employee','الموظف'),L('Details','التفاصيل'),L('Open','فتح')];
   [['leaves','leave_id',L('Leave','إجازة'),r=>tv(r.leave_type)+' '+fmtD(r.start_date)],['advances','advance_id',L('Advance','سلفة'),r=>money(r.amount)],['penalties','penalty_id',L('Penalty','جزاء'),r=>tv(r.penalty_type)+' '+money(r.amount)],['cl_staff','cl_id',L('CL Staff','خصم العاملين'),r=>money(r.amount)]].forEach(([c,k,lb,d])=>DB[c].filter(r=>r.status==='Pending').forEach(r=>rows.push({c:[lb,esc(r[k]),esc(empName(r.emp_id)),esc(d(r)),btn('↗',`go('${c}')`,'sm b')]})))}
- else if(kind&&kind.startsWith('type_')){const t=kind.slice(5);cols=ec;title=L('Employees','الموظفون')+': '+tv(t==='worker'?'10 yrs / 50+':t==='casual'?'Casual':t);
+ else if(kind&&kind.startsWith('type_')){const t=kind.slice(5)==='pct5'?'5%':kind.slice(5);cols=ec;title=L('Employees','الموظفون')+': '+tv(t==='worker'?'10 yrs / 50+':t==='casual'?'Casual':t);
   rows=E.filter(e=>t==='casual'?isCasual(e):t==='worker'?['10years','50years'].includes(e.employee_type):empClass(e)===t).map(empRow)}
  return head('📋',title,`${rows.length} ${L('records','سجل')}`,'#1E3A5F',btn('← '+L('Back','رجوع'),"go('dashboard')",'ghost')+btn('🖨️ '+L('Print','طباعة'),`printVisible(${q(title)},'tdash')`,'ghost'))+`<div class="wrap">${searchBox('tdash')}${table(cols,rows,{id:'tdash'})}</div>`};
 
@@ -664,7 +666,7 @@ function delEmp(id){const e=getEmp(id);if(!e)return;delete DB.employees[e.emp_id
 const EMP_SECTIONS=()=>[
  ['basic','📋',L('Basic Information','البيانات الأساسية'),[
   ['emp_id',L('Employee ID','كود الموظف'),'text',1],['name',L('Full Name (English)','الاسم الكامل'),'text',1],['arabic_name',L('Arabic Name','الاسم بالعربي'),'text'],['family_name',L('Family Name','اسم العائلة'),'text'],['mother_name',L("Mother's Name",'اسم الأم'),'text'],['birth_date',L('Birth Date','تاريخ الميلاد'),'date'],
-  ['department',L('Department','القسم'),'dept',1],['position',L('Position','الوظيفة'),'text',1],['job_title',L('Job Title (optional)','المسمى الوظيفي'),'title'],['emp_class',L('Employee Type (Regular / Casual / 5%)','نوع الموظف (منتظم / مياومة / 5%)'),['sel',EMP_CLASSES]],['employee_type',L('Leave Category','فئة الإجازات'),['sel',EMP_TYPES]],['salary',L('Basic Salary','المرتب الأساسي'),'number',1],['hire_date',L('Hire Date','تاريخ التعيين'),'date'],
+  ['department',L('Department','القسم'),'dept',1],['position',L('Position','الوظيفة'),'text',1],['job_title',L('Job Title (optional)','المسمى الوظيفي'),'title'],['emp_class',L('Employee Type (Regular / Casual / 5%)','نوع الموظف (منتظم / مياومة / 5%)'),['sel',EMP_CLASSES]],['shift',L('Shift','الوردية'),['sel',[['','Auto / تلقائي'],['M','Morning / صباحي 7-3'],['E','Evening / مسائي 3-11'],['N','Night / ليلي 11-7']]]],['employee_type',L('Leave Category','فئة الإجازات'),['sel',EMP_TYPES]],['salary',L('Basic Salary','المرتب الأساسي'),'number',1],['hire_date',L('Hire Date','تاريخ التعيين'),'date'],
   ['email',L('Email','البريد الإلكتروني'),'email'],['phone',L('Phone','الهاتف'),'tel'],['bank_code',L('Bank Code','كود البنك'),'text'],['national_id',L('National ID','الرقم القومي'),'text'],['national_id_issue_date',L('ID Issue Date','تاريخ إصدار البطاقة'),'date'],['national_id_expiry_date',L('ID Expiry Date','تاريخ انتهاء البطاقة'),'date'],
   ['insurance_number',L('Insurance Number','الرقم التأميني'),'text'],['address',L('Address','العنوان'),'text'],['city',L('Governorate','المحافظة'),['sel',GOVS]],['marital_status',L('Marital Status','الحالة الاجتماعية'),['sel',MARITAL]],['number_of_spouses',L('Number of Spouses','عدد الزوجات'),'number'],['number_of_children',L('Number of Children','عدد الأبناء'),'number'],
   ['tax_insurance_status',L('Tax / Insurance','الضريبة / التأمين'),['sel',TIS]],['show_in_situations',L('Show in Employee Situations','إظهار في حالات الموظفين'),'check']]],
@@ -683,7 +685,7 @@ const EMP_SECTIONS=()=>[
 function empField([k,label,t,req],e){const v=e[k];let inner;
  if(t==='date')inner=dinp(k,v);else if(t==='number')inner=inp(k,v,'number','step="any"');else if(t==='check')return `<div class="fld"><label class="chk"><input type="checkbox" name="${k}" ${v?'checked':''}> ${label}</label></div>`;
  else if(t==='dept')inner=sel(k,deptOpts(),v,L('— Select department —','— اختر القسم —'));else if(t==='title')inner=sel(k,[...new Set([...DB.job_titles,...Object.values(DB.employees).map(x=>x.position).filter(Boolean)])].sort(),v,true);
- else if(Array.isArray(t))inner=sel(k,t[1],v,true);else inner=inp(k,v,t,k==='emp_id'&&e._edit?'readonly':(k==='name'?'oninput="autoArabic(this)"':''));
+ else if(Array.isArray(t))inner=sel(k,t[1],v,!t[1].some(o=>Array.isArray(o)&&o[0]===''));else inner=inp(k,v,t,k==='emp_id'&&e._edit?'readonly':(k==='name'?'oninput="autoArabic(this)"':''));
  return fld(label,inner,false,req)}
 function empForm(e){const isEdit=!!e;e=Object.assign({},EMP_DEF,e||{emp_id:nextEmpId(),hire_date:todayS()});e._edit=isEdit;e.emp_class=empClass(e);S.tmp.photo=e.employee_photo||'';S.tmp.lastAr=e.arabic_name||'';
  const secs=EMP_SECTIONS();const tab=S.tmp.empTab||'basic';
@@ -878,19 +880,21 @@ ROUTES.attendance=(act,id)=>{if(act==='new'||act==='edit')return attForm(act==='
  const aq=String(S.srch.tatt||'').trim().toLowerCase();if(aq){const toks=aq.split(/\s+/);const keep=idx.filter(i=>{const r=DB.attendance[i],e=getEmp(r.emp_id);const h=[r.emp_id,e&&e.name,e&&e.arabic_name,tv(empDept(e)),fmtD(r.date),r.status,attStatus(r),r.source].join(' ').toLowerCase();return toks.every(t=>h.includes(t))});idx.length=0;keep.forEach(i=>idx.push(i))}
  const shown=idx.slice(0,3000);let totMin=0;
  const rows=shown.map(i=>{const a=DB.attendance[i],e=getEmp(a.emp_id);const m=durMin(a.check_in,a.check_out);totMin+=m;const st=attStatus(a);
-  return {c:[esc(a.emp_id),esc(e?e.name:'—'),esc(tv(empDept(e))),fmtD(a.date),to24(a.check_in)||'—',to24(a.check_out)||'—',durStr(m)||'—',badge(st,st==='Present'?'ok':st==='Day Off'?'warn':st==='Absent'?'bad':'info'),srcLabel(a.source),`<div class="acts">${btn('✏️',`go('attendance/edit/${i}')`,'sm b')}${isAdmin()?dbtn('🗑️',`delAtt(${i})`,'sm r'):''}</div>`]}});
+  return {c:[esc(a.emp_id),esc(e?e.name:'—'),esc(tv(empDept(e))),fmtD(a.date),to24(a.check_in)||'—',to24(a.check_out)||'—',durStr(m)||'—',shiftBadge(a,e),lateCell(a,e),badge(st,st==='Present'?'ok':st==='Day Off'?'warn':st==='Absent'?'bad':'info'),srcLabel(a.source),`<div class="acts">${btn('✏️',`go('attendance/edit/${i}')`,'sm b')}${isAdmin()?dbtn('🗑️',`delAtt(${i})`,'sm r'):''}</div>`]}});
  const mo=today().getMonth()+1,yr=today().getFullYear();
  return head('📅',L('Attendance','الحضور والانصراف'),L('Track employee attendance','متابعة حضور الموظفين'),'#0EA5E9',btn('➕ '+L('Record','تسجيل'),"go('attendance/new')",'g')+btn('🖐️ '+L('Sync Fingerprint','سحب البصمة'),'zkSyncAll()','v')+btn('📱 '+L('Sync Mobile Punches','سحب بصمات الموبايل'),"mpCfg().gsheet_url?mpSync(false).then(()=>render()):notify(L('Mobile punch is not linked yet — Settings → Mobile GPS Punch','لم يتم ربط البصمة عبر الموبايل بعد — الإعدادات ← البصمة عبر الموبايل'),'err')",'t')+btn('📥 '+L('Import Fingerprint File','استيراد ملف البصمة'),"go('attendance/import')",'ghost')+btn('📊 '+L('Employee Count Daily','العدد اليومي'),"go('attendance/count')",'y')+stdBtns(L('Attendance Report','تقرير الحضور'),'tatt'))
  +`<div class="wrap"><div id="zkRun">${typeof zkRunHTML==='function'?zkRunHTML():''}</div><div class="muted" style="font-size:12px;margin-bottom:8px">🔁 ${L('Auto','تلقائي')}: ${L('mobile every','الموبايل كل')} ${num(mpCfg().auto_sync_minutes)?num(mpCfg().auto_sync_minutes)+' '+L('min','د'):L('off','متوقف')} · ${L('device every','الجهاز كل')} ${num(DB.settings.zk_auto_pull_minutes??15)?num(DB.settings.zk_auto_pull_minutes??15)+' '+L('min','د'):L('off','متوقف')} · ${L('last','آخر سحب')}: ${esc(DB.settings.zk_last_sync||'—')}</div><div class="atb">
  <form id="frm" class="atb-s" onsubmit="return false"><div class="atb-h">🔍 ${L('Filter by date','تصفية بالتاريخ')}</div><div class="atb-r"><label class="atb-l"><span>${L('From','من')}</span>${dinp('from',fl.from)}</label><label class="atb-l"><span>${L('To','إلى')}</span>${dinp('to',fl.to)}</label>${btn('🔍 '+L('Apply','تطبيق'),"S.tmp.attF={from:fv(F(),'from'),to:fv(F(),'to')};render()",'p sm')}${btn(L('Clear','مسح'),'S.tmp.attF={};render()','d sm')}</div></form>
- <form id="frm2" class="atb-s" onsubmit="return false"><div class="atb-h">☀️ ${L('Finalize a day','إقفال يوم')} <span class="atb-i" title="${esc(L('For the chosen completed day: every active employee with no attendance record and no approved leave gets a Day Off record and 1 day is deducted from the Day Off balance. Employees on approved leave get a record with the leave type. Already-processed days are skipped automatically.','لليوم المكتمل المختار: كل موظف بدون سجل حضور وبدون إجازة معتمدة يُسجَّل له يوم راحة ويُخصم يوم من رصيد الراحات، ومن عليه إجازة معتمدة يُسجَّل بنوع الإجازة. الأيام المعالجة سابقاً لا تتكرر.'))}">ⓘ</span></div><div class="atb-r"><label class="atb-l"><span>${L('Day','اليوم')}</span><input type="date" id="dofd" value="${iso(addDays(today(),-1))}"></label>${dbtn('☀️ '+L('Finalize','إقفال'),"finalizeDay()",'y sm')}</div><small class="atb-n">${L('Day Off for whoever has no punch & no leave','راحة لمن لم يبصم وليس عليه إجازة')}</small></form>
+ <form id="frm2" class="atb-s" onsubmit="return false"><div class="atb-h">☀️ ${L('Finalize a day','إقفال يوم')} <span class="atb-i" title="${esc(L('For the chosen completed day: every active employee with no attendance record and no approved leave gets a Day Off record and 1 day is deducted from the Day Off balance. Employees on approved leave get a record with the leave type. Already-processed days are skipped automatically.','لليوم المكتمل المختار: كل موظف بدون سجل حضور وبدون إجازة معتمدة يُسجَّل له يوم راحة ويُخصم يوم من رصيد الراحات، ومن عليه إجازة معتمدة يُسجَّل بنوع الإجازة. الأيام المعالجة سابقاً لا تتكرر.'))}">ⓘ</span></div><div class="atb-r"><label class="atb-l"><span>${L('From','من')}</span><input type="date" id="dofd" value="${iso(addDays(today(),-1))}"></label><label class="atb-l"><span>${L('To','إلى')}</span><input type="date" id="dofd2" value="${iso(addDays(today(),-1))}"></label>${dbtn('☀️ '+L('Finalize','إقفال'),"finalizeDay()",'y sm')}</div><small class="atb-n">${L('Automatic every day — this is only for re-closing old days','تلقائي كل يوم — الزر ده لإقفال أيام قديمة فقط')} · ${L('last','آخر إقفال')}: ${esc(DB.settings.last_dayoff_deduction||'—')}</small></form>
  <form id="frm3" class="atb-s" onsubmit="return false"><div class="atb-h">📊 ${L('Excel by department','Excel حسب القسم')}</div><div class="atb-r"><label class="atb-l"><span>${L('Month','الشهر')}</span><select id="xm">${MONTHS_EN.map((m,i)=>`<option value="${i+1}" ${i+1===mo?'selected':''}>${monthName(i+1)}</option>`).join('')}</select></label><label class="atb-l" style="max-width:90px"><span>${L('Year','السنة')}</span><input type="number" id="xy" value="${yr}"></label>${btn('📊 '+L('Export','تصدير'),"attDeptExcel(+$('#xm').value,+$('#xy').value)",'g sm')}</div><small class="atb-n">${L('In / Out / hours grid','شبكة دخول / خروج / ساعات')}</small></form>
  </div>
  ${searchBox('tatt',L('Search by code, name, department, date, status...','ابحث بالكود أو الاسم أو القسم أو التاريخ أو الحالة...'))}
  <div class="muted" style="margin-bottom:6px">${L('Rows','السجلات')}: <b id="cnt_tatt">${shown.length}</b>${idx.length>shown.length?` (${L('showing latest','عرض أحدث')} 3000 ${L('of','من')} ${idx.length})`:''} — 🕒 ${L('Total work hours','إجمالي ساعات العمل')}: <b>${Math.floor(totMin/60)}h ${pad(totMin%60)}m</b></div>
- ${table([L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Date','التاريخ'),L('Check In','الدخول'),L('Check Out','الخروج'),L('Work Hours','ساعات العمل'),L('Status','الحالة'),L('Source','المصدر'),L('Actions','إجراءات')],rows,{id:'tatt'})}</div>`};
-function finalizeDay(){const d=parseD($('#dofd').value);if(!d){notify(L('Choose a date','اختر التاريخ'),'err');return}if(d>=today()){notify(L('Only completed days (before today) can be finalized','يمكن إقفال الأيام المكتملة فقط (قبل اليوم)'),'err');return}
- const r=applyDayOff(d);log('Finalize day',`${dmy(d)}: ${r.length} Day Off`,'attendance');saveDB();notify(`${L('Day finalized','تم إقفال اليوم')} ${dmy(d)} — ${r.length} ${L('Day Off recorded','يوم راحة مسجل')}`);render()}
+ ${table([L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Date','التاريخ'),L('Check In','الدخول'),L('Check Out','الخروج'),L('Work Hours','ساعات العمل'),L('Shift','الوردية'),L('Late / Early','تأخير / انصراف مبكر'),L('Status','الحالة'),L('Source','المصدر'),L('Actions','إجراءات')],rows,{id:'tatt'})}</div>`};
+function finalizeDay(){let a=parseD($('#dofd').value),b=parseD(($('#dofd2')||{}).value)||a;if(!a){notify(L('Choose a date','اختر التاريخ'),'err');return}if(b<a){const t=a;a=b;b=t}const y=addDays(today(),-1);if(a>y){notify(L('Only completed days (before today) can be finalized','يمكن إقفال الأيام المكتملة فقط (قبل اليوم)'),'err');return}if(b>y)b=y;
+ if((b-a)/864e5>62){notify(L('Maximum 2 months at a time','الحد الأقصى شهرين في المرة'),'err');return}
+ let n=0,days=0;for(let d=new Date(a);d<=b;d=addDays(d,1)){n+=applyDayOff(d).length;days++}
+ log('Finalize day',`${dmy(a)} → ${dmy(b)}: ${n} Day Off`,'attendance');saveDB();notify(`${L('Finalized','تم الإقفال')} ${dmy(a)}${days>1?' → '+dmy(b):''} — ${n} ${L('Day Off recorded','يوم راحة مسجل')}`);render()}
 function attForm(i){const isEdit=i!=null&&DB.attendance[i];const a=isEdit?DB.attendance[i]:{date:todayS(),check_in:pad(new Date().getHours())+':'+pad(new Date().getMinutes()),check_out:'',status:'Present'};
  return head('📅',isEdit?L('Edit Attendance','تعديل حضور'):L('Record Attendance','تسجيل حضور'),'','#0EA5E9',btn('← '+L('Back','رجوع'),"go('attendance')",'ghost'))
  +`<div class="wrap"><form id="frm" onsubmit="return false"><div class="card">${empPick('emp_id',a.emp_id)}<div class="grid mt">${fld(L('Date','التاريخ'),dinp('date',a.date),0,1)}${fld(L('Check In','الدخول'),inp('check_in',to24(a.check_in),'time'))}${fld(L('Check Out','الخروج'),inp('check_out',to24(a.check_out),'time'))}${fld(L('Status','الحالة'),sel('status',['Present','Absent','Late','Leave','Day Off',...LEAVE_TYPES.filter(x=>x!=='Day Off')],a.status))}</div></div>
@@ -1371,7 +1375,7 @@ async function zkSyncAll(opts){opts=opts||{};if(ZK.busy){if(!opts.auto){notify(L
  for(const [i,dev] of devs.entries()){if(opts.index!=null&&opts.index!==i)continue;ZK.prog=(dev.name||dev.ip)+(devs.length>1?` (${i+1}/${devs.length})`:'');zkRunPaint();try{const j=await bridge('attendance',{device:dev,since},600000);all.push(...j.records);anyOk=true;dev.last_ok=nowDisp();dev.last_err='';res.push(`✅ ${dev.name||dev.ip}: ${j.records.length}`)}catch(e){dev.last_err=e.message;res.push(`❌ ${dev.name||dev.ip}: ${e.message}`)}}
  let m={created:0,updated:0,refunded:0,unknown:[]},doff=[];
  if(anyOk){m=zkMerge(all);DB.settings.zk_last_sync_day=todayS();DB.settings.zk_last_sync=nowDisp();
-  const y=dmy(addDays(today(),-1));if(opts.auto&&DB.settings.last_dayoff_deduction!==y){doff=applyDayOff(addDays(today(),-1));DB.settings.last_dayoff_deduction=y}}
+  doff=autoFinalizeNow()}
  const summary=`${res.join(' | ')} — ${L('new','جديد')}: ${m.created}, ${L('updated','محدث')}: ${m.updated}${m.refunded?`, ${L('Day Off refunded','راحة مستردة')}: ${m.refunded}`:''}${doff.length?`, ${L('Day Off recorded for yesterday','راحات مسجلة لأمس')}: ${doff.length}`:''}${m.unknown.length?` — ⚠ ${L('IDs not in system','أكواد غير موجودة بالنظام')}: ${m.unknown.slice(0,15).join(', ')}${m.unknown.length>15?'…':''}`:''}`;
  zkLog((opts.auto?'[Auto] ':'')+summary,anyOk);log(opts.auto?'Auto fingerprint sync':'Fingerprint sync',summary.slice(0,400),'attendance');saveDB();ZK.busy=false;zkRunPaint();
  if(!opts.auto){if(location.hash.startsWith('#/attendance'))render();if(/^#\/(zk|settings\/zk)/.test(getHash()))render();notify(summary,anyOk?'ok':'err')}else if(anyOk&&(m.created||m.updated)&&location.hash.startsWith('#/attendance'))render();
@@ -1521,7 +1525,7 @@ function dashMonthHTML(){const t=today(),y=t.getFullYear(),m=t.getMonth()+1;cons
  const att=DB.attendance.filter(a=>inCurMonth(a.date));const pres=new Set(att.filter(a=>a.check_in).map(a=>a.emp_id+'|'+fmtD(a.date))).size,abs=new Set(att.filter(a=>a.status==='Absent').map(a=>a.emp_id+'|'+fmtD(a.date))).size;
  const lv=DB.leaves.filter(l=>l.status==='Approved'&&(inCurMonth(l.start_date)||inCurMonth(l.end_date)));
  return `<div class="h2">📅 ${L('This Month','هذا الشهر')} — ${monthName(m)} ${y} <span class="muted" style="font-weight:600;font-size:12px">${L('(updates automatically each month)','(تتحدث تلقائياً كل شهر)')}</span></div>
- <div class="stats">${stat('🆕',L('New Hires','معينون جدد'),Object.values(DB.employees).filter(e=>inCurMonth(e.hire_date)).length,'#0EA5E9','dash/m_hires')}${stat('🚪',L('Resignations','الاستقالات'),resignedInMonth(y,m).length,'#DC2626','dash/m_resigned')}${stat('💵',L('Advances EGP','السلف ج.م'),Math.round(adv.reduce((s,a)=>s+num(a.amount),0)).toLocaleString('en-US'),'#F59E0B','dash/m_adv')}${stat('⚠️',L('Penalties EGP','الجزاءات ج.م'),Math.round(pen.reduce((s,p)=>s+num(p.amount)+num(p.additional_penalty),0)).toLocaleString('en-US'),'#EF4444','dash/m_pen')}${stat('🏖️',L('Approved Leaves','إجازات معتمدة'),lv.length,'#8B5CF6','dash/m_leaves')}${stat('✅',L('Present Days','أيام الحضور'),pres,'#10B981','attendance')}${stat('❌',L('Absent Days','أيام الغياب'),abs,'#64748B','attendance')}</div>`}
+ <div class="stats">${stat('🆕',L('New Hires','معينون جدد'),Object.values(DB.employees).filter(e=>inCurMonth(e.hire_date)).length,'#0EA5E9','dash/m_hires')}${stat('🚪',L('Resignations','الاستقالات'),resignedInMonth(y,m).length,'#DC2626','dash/m_resigned')}${stat('💵',L('Advances EGP','السلف ج.م'),Math.round(adv.reduce((s,a)=>s+num(a.amount),0)).toLocaleString('en-US'),'#F59E0B','dash/m_adv')}${stat('⚠️',L('Penalties EGP','الجزاءات ج.م'),Math.round(pen.reduce((s,p)=>s+num(p.amount)+num(p.additional_penalty),0)).toLocaleString('en-US'),'#EF4444','dash/m_pen')}${stat('🏖️',L('Approved Leaves','إجازات معتمدة'),lv.length,'#8B5CF6','dash/m_leaves')}${stat('✅',L('Present Days','أيام الحضور'),pres,'#10B981','dash/m_att')}${stat('❌',L('Absent Days','أيام الغياب'),abs,'#64748B','dash/m_abs')}</div>`}
 const _dashKinds=ROUTES.dash;ROUTES.dash=(kind)=>{if(!kind||!kind.startsWith('m_'))return _dashKinds(kind);const t=today(),y=t.getFullYear(),m=t.getMonth()+1;const en=id=>{const e=getEmp(id)||archEmp(id);return e?e.name:id};let title='',cols=[],rows=[];
  if(kind==='m_hires'){title=L('New Hires','معينون جدد');cols=['ID',L('Name','الاسم'),L('Department','القسم'),L('Hire Date','التعيين')];rows=Object.values(DB.employees).filter(e=>inCurMonth(e.hire_date)).map(e=>[e.emp_id,e.name,tv(empDept(e)),fmtD(e.hire_date)])}
  else if(kind==='m_resigned'){title=L('Resignations','الاستقالات');cols=['ID',L('Name','الاسم'),L('Resignation Date','تاريخ الاستقالة'),L('Reason','السبب')];rows=resignedInMonth(y,m).map(id=>{const e=DB.archived_employees[id].employee||{};return [id,e.name,fmtD(e.resignation_date),e.resignation_reason||'']})}
@@ -1557,8 +1561,8 @@ async function mpSync(full,silent){if(MP_BUSY){if(!silent)notify(L('Sync already
  try{const c=mpCfg();const since=full?0:num(c.last_row);const res=await gsReq('pull',{since_row:since});const rows=res.rows||[];let added=0;
   rows.forEach(r=>{try{const e=getEmp(r.emp_id);if(!e){mpLog({result:'rejected',reason:L('Number not registered in the program','رقم غير مسجل في البرنامج'),code:'no_emp',clock_no:r.emp_id,name:r.name||'',type:r.type,distance_m:r.distance_m,accuracy:r.accuracy,row:r.row,timestamp:`${r.date||''} ${r.time||''}`});return}
    const d=mpNormDate(r.date),t=mpNormTime(r.time),pt=String(r.type||'in').toLowerCase().startsWith('in')?'in':'out';
-   const a=DB.attendance.find(x=>String(x.emp_id)===String(e.emp_id)&&fmtD(x.date)===d);
-   if(a){if(pt==='in'){if(!a.check_in||(timeMin(t)!=null&&timeMin(t)<timeMin(a.check_in)))a.check_in=t}else{if(!a.check_out||(timeMin(t)!=null&&timeMin(t)>timeMin(a.check_out)))a.check_out=t}
+   const np=pt==='out'?nightPrev(e.emp_id,d,t):null;const a=np||DB.attendance.find(x=>String(x.emp_id)===String(e.emp_id)&&fmtD(x.date)===d);
+   if(a){if(pt==='in'){if(!a.check_in||(timeMin(t)!=null&&timeMin(t)<timeMin(a.check_in)))a.check_in=t}else{if(!a.check_out||relOut(a.check_in,t)>relOut(a.check_in,a.check_out))a.check_out=t}
     addSource(a,'mobile');if(['Day Off','Absent'].includes(a.status)){if(a.status==='Day Off')e.dof_override=r2((e.dof_override!=null&&e.dof_override!==''?num(e.dof_override):52)+1);a.status='Present'}}
    else DB.attendance.push({emp_id:e.emp_id,date:d,check_in:pt==='in'?t:'',check_out:pt==='out'?t:'',status:'Present',source:'mobile'});
    mpLog({result:'ok',reason:'',code:'ok',clock_no:r.emp_id,emp_id:e.emp_id,name:e.name,type:pt,distance_m:r.distance_m,accuracy:r.accuracy,lat:r.lat,lng:r.lng,row:r.row,date:d,time:t,dept:mpDept(e),photo:r.photo||'',timestamp:`${d} ${t}`});added++}catch(x){}});
@@ -1684,6 +1688,78 @@ const SLIP_CSS=`<style>
 </style>`;
 function printSlip(){const {e,r,m,y}=S.tmp.slip;printRaw(SLIP_CSS+slipPrintHTML(e,r,m,y),'rtl')}
 
+/* ═══════════ Automatic day closing (Day Off for no punch / no leave) ═══════════
+   Runs by itself on any admin/HR device — no button needed.
+   • waits until the fingerprint has been pulled today (or until 12:00 if no device pulled)
+   • closes every missed day up to yesterday (max 14 days back)
+   • Day Off balance first, then the annual balance (see leaveBalance)
+   • a later punch for that day (device / mobile / manual) gives the day back automatically */
+function autoFinalizeNow(){const yd=addDays(today(),-1),y=dmy(yd);if(DB.settings.last_dayoff_deduction===y)return [];
+ let st=parseD(DB.settings.last_dayoff_deduction);st=st?addDays(st,1):yd;if((yd-st)/864e5>14)st=addDays(yd,-14);
+ DB.settings.last_dayoff_deduction=y;const out=[];for(let d=new Date(st);d<=yd;d=addDays(d,1))out.push(...applyDayOff(d));
+ log('Auto close day',`${dmy(st)}${st<yd?' → '+y:''}: ${out.length} Day Off`,'attendance');return out}
+let _afBusy=false;
+async function autoFinalizeTick(){if(_afBusy||!S.user||!DB||!isAdmin())return;const y=dmy(addDays(today(),-1));if(DB.settings.last_dayoff_deduction===y)return;
+ const hasDev=(DB.zk_devices||[]).length>0;const pulledToday=DB.settings.zk_last_sync_day===todayS();if(hasDev&&!pulledToday&&new Date().getHours()<12)return;
+ _afBusy=true;try{await new Promise(r=>setTimeout(r,2000+Math.random()*15000));            // different devices don't start at the same second
+  if(typeof onlineOn==='function'&&onlineOn()){try{await onCycle()}catch(e){}}                // take the newest data first (maybe another device already closed the day)
+  if(DB.settings.last_dayoff_deduction===y)return;const r=autoFinalizeNow();saveDB();
+  if(r.length&&location.hash.startsWith('#/attendance'))render()}finally{_afBusy=false}}
+setInterval(autoFinalizeTick,5*60000);setTimeout(autoFinalizeTick,30000);
+/* ═══════════ Shifts: Morning 07–15 · Evening 15–23 · Night 23–07 ═══════════ */
+const SHIFT_DEF=[{id:'M',en:'Morning',ar:'صباحي',start:'07:00',end:'15:00'},{id:'E',en:'Evening',ar:'مسائي',start:'15:00',end:'23:00'},{id:'N',en:'Night',ar:'ليلي',start:'23:00',end:'07:00'}];
+function SHIFTS(){const s=DB.settings.shifts;return Array.isArray(s)&&s.length===3?s:SHIFT_DEF}
+function shiftGrace(){const g=DB.settings.shift_grace;return g==null||g===''?15:num(g)}
+const cdiff=(a,b)=>((a-b+1440+720)%1440)-720;          // signed circular difference in minutes
+function shiftOf(a,e){if(!a)return null;e=e||getEmp(a.emp_id);const S3=SHIFTS();
+ if(e&&e.shift){const f=S3.find(s=>s.id===e.shift);if(f)return f}
+ const ci=timeMin(a.check_in),co=timeMin(a.check_out);
+ if(ci!=null)return S3.slice().sort((x,y)=>Math.abs(cdiff(ci,timeMin(x.start)))-Math.abs(cdiff(ci,timeMin(y.start))))[0];
+ if(co!=null)return S3.slice().sort((x,y)=>Math.abs(cdiff(co,timeMin(x.end)))-Math.abs(cdiff(co,timeMin(y.end))))[0];return null}
+function shiftLate(a,sh){sh=sh||shiftOf(a);const ci=timeMin(a&&a.check_in);if(!sh||ci==null)return 0;const d=cdiff(ci,timeMin(sh.start));return d>shiftGrace()?d:0}
+function shiftEarly(a,sh){sh=sh||shiftOf(a);const co=timeMin(a&&a.check_out);if(!sh||co==null||!a.check_in)return 0;const d=cdiff(timeMin(sh.end),co);return d>0&&d<480?d:0}
+function shiftName(sh){return sh?L(sh.en,sh.ar):'—'}
+function shiftBadge(a,e){const sh=shiftOf(a,e);if(!sh)return '—';const ic={M:'🌅',E:'🌇',N:'🌙'}[sh.id]||'';return `<span class="badge mut" title="${esc(sh.start+' – '+sh.end)}">${ic} ${esc(shiftName(sh))}</span>`}
+function lateCell(a,e){const sh=shiftOf(a,e);const l=shiftLate(a,sh),x=shiftEarly(a,sh);const out=[];if(l)out.push(`<span style="color:#B91C1C;font-weight:700" title="${esc(L('Late','تأخير'))}">⏰ ${l}${L('m','د')}</span>`);if(x)out.push(`<span style="color:#B45309;font-weight:700" title="${esc(L('Left early','انصراف مبكر'))}">↩ ${x}${L('m','د')}</span>`);return out.join(' ')||'—'}
+
+/* night shift: a morning punch that closes last night's shift belongs to yesterday */
+function nightPrev(empId,ds,t){const tm=timeMin(t);if(tm==null||tm>=12*60)return null;const d=parseD(ds);if(!d)return null;const pd=dmy(addDays(d,-1));
+ const p=DB.attendance.find(x=>String(x.emp_id)===String(empId)&&fmtD(x.date)===pd);if(!p)return null;const pi=timeMin(p.check_in);
+ if(pi!=null&&pi>=19*60&&!String(p.check_out||'').trim())return p;return null}
+const relOut=(cin,t)=>{const i=timeMin(cin),o=timeMin(t);if(o==null)return -1;return i!=null&&o<i?o+1440:o};
+
+/* device merge — punches are grouped into work sessions (≤17h), so 23:00 → 07:00 is ONE day */
+zkMerge=function(records){const per={};const unknown=new Set();
+ records.forEach(r=>{const m=String(r.timestamp||'').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);if(!m)return;const e=getEmp(r.user_id);if(!e){unknown.add(String(r.user_id));return}
+  (per[e.emp_id]=per[e.emp_id]||[]).push({abs:new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]).getTime(),ds:`${m[3]}/${m[2]}/${m[1]}`,t:`${m[4]}:${m[5]}`,p:+r.punch||0})});
+ let created=0,updated=0,refunded=0;const refund=(a,id)=>{if(['Day Off','Absent'].includes(a.status)){if(a.status==='Day Off'){const e=getEmp(id);e.dof_override=r2((e.dof_override!=null&&e.dof_override!==''?num(e.dof_override):52)+1);refunded++}a.status='Present'}};
+ for(const id in per){const ps=per[id].sort((a,b)=>a.abs-b.abs);const sess=[];let cur=null;
+  ps.forEach(x=>{if(cur&&x.abs-cur[cur.length-1].abs<60000)return;if(!cur||x.abs-cur[0].abs>17*3600000){cur=[];sess.push(cur)}cur.push(x)});
+  for(const s of sess){const f=s[0],l=s[s.length-1];let cin=f.t,cout=(s.length>1&&l.abs-f.abs>=30*60000)?l.t:'';
+   if(s.length===1){const isOut=!(f.p===0||f.p===4);const prev=nightPrev(id,f.ds,f.t);
+    if(prev){prev.check_out=f.t;addSource(prev,'device');updated++;continue}
+    if(isOut){cout=f.t;cin=''}}
+   let a=DB.attendance.find(x=>String(x.emp_id)===id&&fmtD(x.date)===f.ds);
+   if(!a){DB.attendance.push({emp_id:id,date:f.ds,check_in:cin,check_out:cout,status:'Present',source:'device'});created++;continue}
+   let ch=false;if(cin&&(!a.check_in||timeMin(cin)<timeMin(a.check_in))){a.check_in=cin;ch=true}
+   if(cout&&(!a.check_out||relOut(a.check_in||cin,cout)>relOut(a.check_in||cin,a.check_out))){a.check_out=cout;ch=true}
+   if(ch){refund(a,id);addSource(a,'device');updated++}}}
+ return {created,updated,refunded,unknown:[...unknown]}};
+
+/* settings card */
+const _setGeneralOrig=setGeneral;
+setGeneral=function(){const S3=SHIFTS();return _setGeneralOrig()+(isAdmin()?`<form id="shf" class="card" onsubmit="return false"><h3>🕒 ${L('Work Shifts','الورديات')}</h3><p class="muted">${L('The shift is detected automatically from the check-in time (or fixed per employee in his file). Night shift 23:00 → 07:00 is counted as one day on the start date.','الوردية بتتحدد تلقائياً من ساعة الدخول (أو ثابتة للموظف من ملفه). الوردية الليلية 11م ← 7ص بتتحسب يوم واحد بتاريخ بدايتها.')}</p>
+ <div class="tbl-wrap"><table class="tbl" style="min-width:420px"><thead><tr><th>${L('Shift','الوردية')}</th><th>${L('Start','البداية')}</th><th>${L('End','النهاية')}</th></tr></thead><tbody>${S3.map((s,i)=>`<tr><td><b>${{M:'🌅',E:'🌇',N:'🌙'}[s.id]||''} ${esc(shiftName(s))}</b></td><td><input type="time" name="ss${i}" value="${esc(s.start)}"></td><td><input type="time" name="se${i}" value="${esc(s.end)}"></td></tr>`).join('')}</tbody></table></div>
+ <div class="grid mt">${fld(L('Grace minutes before counting late','دقائق السماح قبل حساب التأخير'),`<input type="number" name="sgr" min="0" value="${shiftGrace()}">`)}</div><div class="actions">${btn('💾 '+L('Save shifts','حفظ الورديات'),'saveShifts()','g')}</div></form>`:'')};
+function saveShifts(){const f=document.getElementById('shf');DB.settings.shifts=SHIFTS().map((s,i)=>Object.assign({},s,{start:f.querySelector(`[name=ss${i}]`).value||s.start,end:f.querySelector(`[name=se${i}]`).value||s.end}));DB.settings.shift_grace=num(f.querySelector('[name=sgr]').value);log('Shifts updated','','settings');saveDB();notify(L('Shifts saved','تم حفظ الورديات'));render()}
+
+/* dashboard: present / absent days of this month */
+const _dashM=ROUTES.dash;ROUTES.dash=(kind)=>{if(kind!=='m_att'&&kind!=='m_abs')return _dashM(kind);const t=today();
+ const recs=DB.attendance.filter(a=>inCurMonth(a.date)&&(kind==='m_att'?!!String(a.check_in||'').trim():a.status==='Absent')).sort((a,b)=>(parseD(b.date)||0)-(parseD(a.date)||0)||String(a.emp_id).localeCompare(String(b.emp_id),undefined,{numeric:true}));
+ const title=(kind==='m_att'?L('Present Days','أيام الحضور'):L('Absent Days','أيام الغياب'))+' — '+monthName(t.getMonth()+1)+' '+t.getFullYear();
+ const rows=recs.slice(0,5000).map(a=>{const e=getEmp(a.emp_id);return {c:[esc(a.emp_id),esc(e?e.name:'—'),esc(tv(empDept(e))),fmtD(a.date),to24(a.check_in)||'—',to24(a.check_out)||'—',kind==='m_att'?shiftBadge(a,e):esc(tv(a.status))]}});
+ return head(kind==='m_att'?'✅':'❌',title,`${recs.length} ${L('records','سجل')}`,'#1E3A5F',btn('← '+L('Back','رجوع'),"go('dashboard')",'ghost')+btn('🖨️ '+L('Print','طباعة'),`printVisible(${q(title)},'tdash')`,'ghost'))+`<div class="wrap">${searchBox('tdash')}${table([L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Date','التاريخ'),L('Check In','الدخول'),L('Check Out','الخروج'),kind==='m_att'?L('Shift','الوردية'):L('Status','الحالة')],rows,{id:'tdash'})}</div>`};
+
 /* ═══════════════════ ONLINE MULTI-USER ENGINE ═══════════════════
    All users work at the same time. Every change is detected per record,
    sent alone to the server (Google Apps Script), merged there, and pulled
@@ -1693,7 +1769,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1792503247';
+const BUILD_ID='1792654745';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
