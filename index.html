@@ -555,8 +555,8 @@ function leaveBalance(e){const hd=parseD(e.hire_date);const mw=hd?Math.max(0,mon
  return {mw,svc,type:ti.label,hol,dofBase:base,dof:Math.max(0,r2(base-doCons)),ann:Math.max(0,r2(ann-annCons)),annFull:ann,over,total,used,adj,remaining:Math.max(0,r2(total+adj-used)),notes,probation:mw<6}}
 function annualEntitlement(e,at){const hd=parseD(e.hire_date)||today();const mw=monthsBetween(hd,at||today());const ti=typeInfo(e.employee_type);if(mw<6)return 0;if(mw<12)return r2((mw-5)*ti.ann/12);return ti.ann}
 function usedAnnualDayOff(id){return DB.leaves.filter(l=>String(l.emp_id)===String(id)&&APPROVED.includes(l.status)&&['Annual','Day Off'].includes(l.leave_type)).reduce((s,l)=>s+leaveDays(l),0)}
-function applyDayOff(d){d=parseD(d);if(!d)return [];const ds=dmy(d);const out=[];
- for(const e of activeEmps()){if(DB.attendance.some(a=>String(a.emp_id)===String(e.emp_id)&&fmtD(a.date)===ds))continue;const lt=approvedLeaveOn(e.emp_id,d);
+function applyDayOff(d,only){d=parseD(d);if(!d)return [];const ds=dmy(d);const out=[];
+ for(const e of (only||activeEmps())){if(DB.attendance.some(a=>String(a.emp_id)===String(e.emp_id)&&fmtD(a.date)===ds))continue;const lt=approvedLeaveOn(e.emp_id,d);
   if(lt){DB.attendance.push({emp_id:e.emp_id,date:ds,check_in:'',check_out:'',status:lt});continue}
   DB.attendance.push({emp_id:e.emp_id,date:ds,check_in:'',check_out:'',status:'Day Off'});const cur=e.dof_override!=null&&e.dof_override!==''?num(e.dof_override):52;e.dof_override=r2(cur-1);out.push(e.name)}
  return out}
@@ -1788,6 +1788,25 @@ const _dashM=ROUTES.dash;ROUTES.dash=(kind)=>{if(kind!=='m_att'&&kind!=='m_abs')
  const title=(kind==='m_att'?L('Present Days','أيام الحضور'):L('Absent Days','أيام الغياب'))+' — '+monthName(t.getMonth()+1)+' '+t.getFullYear();
  const rows=recs.slice(0,5000).map(a=>{const e=getEmp(a.emp_id);return {c:[esc(a.emp_id),esc(e?e.name:'—'),esc(tv(empDept(e))),fmtD(a.date),t12(a.check_in)||'—',t12(a.check_out)||'—',kind==='m_att'?shiftBadge(a,e):esc(tv(a.status))]}});
  return head(kind==='m_att'?'✅':'❌',title,`${recs.length} ${L('records','سجل')}`,'#1E3A5F',btn('← '+L('Back','رجوع'),"go('dashboard')",'ghost')+btn('🖨️ '+L('Print','طباعة'),`printVisible(${q(title)},'tdash')`,'ghost'))+`<div class="wrap">${searchBox('tdash')}${table([L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Date','التاريخ'),L('Check In','الدخول'),L('Check Out','الخروج'),kind==='m_att'?L('Shift','الوردية'):L('Status','الحالة')],rows,{id:'tdash'})}</div>`};
+
+/* ═══════════ Same-day Day Off for day shifts ═══════════
+   Morning (07–15) and Office (09–17) staff don't need to wait for tomorrow:
+   3 hours after their shift started, whoever has no punch and no approved leave gets today's Day Off.
+   Their usual shift = fixed shift, else the shift they worked most in the last 21 days (office depts → Office).
+   Evening / night staff are still closed the next morning. A later punch gives the day back automatically. */
+function usualShift(e){if(e.shift)return e.shift;const from=addDays(today(),-21),cnt={};
+ for(const a of DB.attendance){if(String(a.emp_id)!==String(e.emp_id)||!String(a.check_in||'').trim())continue;const d=parseD(a.date);if(!d||d<from)continue;const sh=shiftOf(a,e);if(sh)cnt[sh.id]=(cnt[sh.id]||0)+1}
+ const best=Object.entries(cnt).sort((x,y)=>y[1]-x[1])[0];if(best&&best[1]>=3)return best[0];return isOfficeEmp(e)?'O':null}
+let _tdBusy=false;
+async function todayDayOffTick(){if(_tdBusy||!S.user||!DB||!isAdmin())return;const hasDev=(DB.zk_devices||[]).length>0;if(hasDev&&DB.settings.zk_last_sync_day!==todayS())return;
+ const now=new Date(),nm=now.getHours()*60+now.getMinutes(),ds=todayS();const AL=SHIFTS();
+ const due=activeEmps().filter(e=>{const u=usualShift(e);if(u!=='M'&&u!=='O')return false;const sh=AL.find(s=>s.id===u);return sh&&nm>=timeMin(sh.start)+180&&!DB.attendance.some(a=>String(a.emp_id)===String(e.emp_id)&&fmtD(a.date)===ds)});
+ if(!due.length)return;_tdBusy=true;
+ try{if(typeof onlineOn==='function'&&onlineOn()){const me=onClient(),ls=DB.settings.today_dof_lease;if(ls&&ls.c!==me&&Date.now()-num(ls.t)<90000)return;
+   DB.settings.today_dof_lease={c:me,t:Date.now()};saveDB();await new Promise(r=>setTimeout(r,4000+Math.random()*4000));try{await onCycle()}catch(e){}const l2=DB.settings.today_dof_lease;if(!l2||l2.c!==me)return}
+  const out=applyDayOff(today(),due);delete DB.settings.today_dof_lease;if(out.length){log('Auto Day Off (day shifts)',`${ds}: ${out.length}`,'attendance');}saveDB();
+  if(out.length&&/^#\/(attendance|dashboard|dash)/.test(getHash())&&!uiBusy())render()}finally{_tdBusy=false}}
+setInterval(todayDayOffTick,5*60000);setTimeout(todayDayOffTick,40000);
 /* ═══════════ Background fingerprint pull (bridge → server inbox → merged here) ═══════════
    The bridge on the hotel PC pulls the devices by itself and drops new punches into DB.zk_inbox
    on the online server. Any admin/HR device that is open merges them into attendance —
@@ -1838,7 +1857,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1792674662';
+const BUILD_ID='1792676694';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
