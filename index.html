@@ -666,7 +666,7 @@ function delEmp(id){const e=getEmp(id);if(!e)return;delete DB.employees[e.emp_id
 const EMP_SECTIONS=()=>[
  ['basic','📋',L('Basic Information','البيانات الأساسية'),[
   ['emp_id',L('Employee ID','كود الموظف'),'text',1],['name',L('Full Name (English)','الاسم الكامل'),'text',1],['arabic_name',L('Arabic Name','الاسم بالعربي'),'text'],['family_name',L('Family Name','اسم العائلة'),'text'],['mother_name',L("Mother's Name",'اسم الأم'),'text'],['birth_date',L('Birth Date','تاريخ الميلاد'),'date'],
-  ['department',L('Department','القسم'),'dept',1],['position',L('Position','الوظيفة'),'text',1],['job_title',L('Job Title (optional)','المسمى الوظيفي'),'title'],['emp_class',L('Employee Type (Regular / Casual / 5%)','نوع الموظف (منتظم / مياومة / 5%)'),['sel',EMP_CLASSES]],['shift',L('Shift','الوردية'),['sel',[['','Auto / تلقائي'],['M','Morning / صباحي 7-3'],['E','Evening / مسائي 3-11'],['N','Night / ليلي 11-7']]]],['employee_type',L('Leave Category','فئة الإجازات'),['sel',EMP_TYPES]],['salary',L('Basic Salary','المرتب الأساسي'),'number',1],['hire_date',L('Hire Date','تاريخ التعيين'),'date'],
+  ['department',L('Department','القسم'),'dept',1],['position',L('Position','الوظيفة'),'text',1],['job_title',L('Job Title (optional)','المسمى الوظيفي'),'title'],['emp_class',L('Employee Type (Regular / Casual / 5%)','نوع الموظف (منتظم / مياومة / 5%)'),['sel',EMP_CLASSES]],['shift',L('Shift','الوردية'),['sel',[['','Auto / تلقائي'],['M','Morning / صباحي 7-3'],['E','Evening / مسائي 3-11'],['N','Night / ليلي 11-7'],['O','Office / إداري 9-5']]]],['employee_type',L('Leave Category','فئة الإجازات'),['sel',EMP_TYPES]],['salary',L('Basic Salary','المرتب الأساسي'),'number',1],['hire_date',L('Hire Date','تاريخ التعيين'),'date'],
   ['email',L('Email','البريد الإلكتروني'),'email'],['phone',L('Phone','الهاتف'),'tel'],['bank_code',L('Bank Code','كود البنك'),'text'],['national_id',L('National ID','الرقم القومي'),'text'],['national_id_issue_date',L('ID Issue Date','تاريخ إصدار البطاقة'),'date'],['national_id_expiry_date',L('ID Expiry Date','تاريخ انتهاء البطاقة'),'date'],
   ['insurance_number',L('Insurance Number','الرقم التأميني'),'text'],['address',L('Address','العنوان'),'text'],['city',L('Governorate','المحافظة'),['sel',GOVS]],['marital_status',L('Marital Status','الحالة الاجتماعية'),['sel',MARITAL]],['number_of_spouses',L('Number of Spouses','عدد الزوجات'),'number'],['number_of_children',L('Number of Children','عدد الأبناء'),'number'],
   ['tax_insurance_status',L('Tax / Insurance','الضريبة / التأمين'),['sel',TIS]],['show_in_situations',L('Show in Employee Situations','إظهار في حالات الموظفين'),'check']]],
@@ -890,7 +890,7 @@ ROUTES.attendance=(act,id)=>{if(act==='new'||act==='edit')return attForm(act==='
  </div>
  ${searchBox('tatt',L('Search by code, name, department, date, status...','ابحث بالكود أو الاسم أو القسم أو التاريخ أو الحالة...'))}
  <div class="muted" style="margin-bottom:6px">${L('Rows','السجلات')}: <b id="cnt_tatt">${shown.length}</b>${idx.length>shown.length?` (${L('showing latest','عرض أحدث')} 3000 ${L('of','من')} ${idx.length})`:''} — 🕒 ${L('Total work hours','إجمالي ساعات العمل')}: <b>${Math.floor(totMin/60)}h ${pad(totMin%60)}m</b></div>
- ${table([L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Date','التاريخ'),L('Check In','الدخول'),L('Check Out','الخروج'),L('Work Hours','ساعات العمل'),L('Shift','الوردية'),L('Late / Early','تأخير / انصراف مبكر'),L('Status','الحالة'),L('Source','المصدر'),L('Actions','إجراءات')],rows,{id:'tatt'})}</div>`};
+ ${table([L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Date','التاريخ'),L('Check In','الدخول'),L('Check Out','الخروج'),L('Work Hours','ساعات العمل'),L('Shift','الوردية'),L('Late / Early (h:mm)','تأخير / انصراف مبكر (س:د)'),L('Status','الحالة'),L('Source','المصدر'),L('Actions','إجراءات')],rows,{id:'tatt'})}</div>`};
 function finalizeDay(){let a=parseD($('#dofd').value),b=parseD(($('#dofd2')||{}).value)||a;if(!a){notify(L('Choose a date','اختر التاريخ'),'err');return}if(b<a){const t=a;a=b;b=t}const y=addDays(today(),-1);if(a>y){notify(L('Only completed days (before today) can be finalized','يمكن إقفال الأيام المكتملة فقط (قبل اليوم)'),'err');return}if(b>y)b=y;
  if((b-a)/864e5>62){notify(L('Maximum 2 months at a time','الحد الأقصى شهرين في المرة'),'err');return}
  let n=0,days=0;for(let d=new Date(a);d<=b;d=addDays(d,1)){n+=applyDayOff(d).length;days++}
@@ -1707,20 +1707,26 @@ async function autoFinalizeTick(){if(_afBusy||!S.user||!DB||!isAdmin())return;co
   if(r.length&&location.hash.startsWith('#/attendance'))render()}finally{_afBusy=false}}
 setInterval(autoFinalizeTick,5*60000);setTimeout(autoFinalizeTick,30000);
 /* ═══════════ Shifts: Morning 07–15 · Evening 15–23 · Night 23–07 ═══════════ */
-const SHIFT_DEF=[{id:'M',en:'Morning',ar:'صباحي',start:'07:00',end:'15:00'},{id:'E',en:'Evening',ar:'مسائي',start:'15:00',end:'23:00'},{id:'N',en:'Night',ar:'ليلي',start:'23:00',end:'07:00'}];
-function SHIFTS(){const s=DB.settings.shifts;return Array.isArray(s)&&s.length===3?s:SHIFT_DEF}
+const SHIFT_DEF=[{id:'M',en:'Morning',ar:'صباحي',start:'07:00',end:'15:00'},{id:'E',en:'Evening',ar:'مسائي',start:'15:00',end:'23:00'},{id:'N',en:'Night',ar:'ليلي',start:'23:00',end:'07:00'},{id:'O',en:'Office',ar:'إداري',start:'09:00',end:'17:00'}];
+function SHIFTS(){const s=Array.isArray(DB.settings.shifts)?DB.settings.shifts:[];return SHIFT_DEF.map(d=>Object.assign({},d,s.find(x=>x&&x.id===d.id)||{}))}
+const ROT=()=>SHIFTS().filter(s=>s.id!=='O');               // the 3 rotating shifts used for automatic detection
+/* departments that work office hours (09–17) — default: Front Office, Accounts/Financial, HR, Concierge, Reservation & Marketing, Purchasing */
+function officeDepts(){const v=DB.settings.office_depts;if(Array.isArray(v))return v;return Object.values(DB.departments||{}).filter(d=>/front\s*office|financ|account|human|^hr\b|concierge|reservation|marketing|purchas|مكتب أمامي|المكتب الأمامي|حسابات|مالي|موارد بشرية|كونسيرج|حجز|تسويق|مشتريات/i.test(d.name||'')).map(d=>d.dept_id)}
+function isOfficeEmp(e){if(!e)return false;const ds=officeDepts();return ds.includes(e.department)||ds.includes(String(e.department))}
 function shiftGrace(){const g=DB.settings.shift_grace;return g==null||g===''?15:num(g)}
 const cdiff=(a,b)=>((a-b+1440+720)%1440)-720;          // signed circular difference in minutes
-function shiftOf(a,e){if(!a)return null;e=e||getEmp(a.emp_id);const S3=SHIFTS();
- if(e&&e.shift){const f=S3.find(s=>s.id===e.shift);if(f)return f}
+function shiftOf(a,e){if(!a)return null;e=e||getEmp(a.emp_id);const ALL=SHIFTS(),S3=ROT();
+ if(e&&e.shift){const f=ALL.find(s=>s.id===e.shift);if(f)return f}
+ if(isOfficeEmp(e))return ALL.find(s=>s.id==='O');
  const ci=timeMin(a.check_in),co=timeMin(a.check_out);
  if(ci!=null)return S3.slice().sort((x,y)=>Math.abs(cdiff(ci,timeMin(x.start)))-Math.abs(cdiff(ci,timeMin(y.start))))[0];
  if(co!=null)return S3.slice().sort((x,y)=>Math.abs(cdiff(co,timeMin(x.end)))-Math.abs(cdiff(co,timeMin(y.end))))[0];return null}
 function shiftLate(a,sh){sh=sh||shiftOf(a);const ci=timeMin(a&&a.check_in);if(!sh||ci==null)return 0;const d=cdiff(ci,timeMin(sh.start));return d>shiftGrace()?d:0}
 function shiftEarly(a,sh){sh=sh||shiftOf(a);const co=timeMin(a&&a.check_out);if(!sh||co==null||!a.check_in)return 0;const d=cdiff(timeMin(sh.end),co);return d>0&&d<480?d:0}
 function shiftName(sh){return sh?L(sh.en,sh.ar):'—'}
-function shiftBadge(a,e){const sh=shiftOf(a,e);if(!sh)return '—';const ic={M:'🌅',E:'🌇',N:'🌙'}[sh.id]||'';return `<span class="badge mut" title="${esc(sh.start+' – '+sh.end)}">${ic} ${esc(shiftName(sh))}</span>`}
-function lateCell(a,e){const sh=shiftOf(a,e);const l=shiftLate(a,sh),x=shiftEarly(a,sh);const out=[];if(l)out.push(`<span style="color:#B91C1C;font-weight:700" title="${esc(L('Late','تأخير'))}">⏰ ${l}${L('m','د')}</span>`);if(x)out.push(`<span style="color:#B45309;font-weight:700" title="${esc(L('Left early','انصراف مبكر'))}">↩ ${x}${L('m','د')}</span>`);return out.join(' ')||'—'}
+function shiftBadge(a,e){const sh=shiftOf(a,e);if(!sh)return '—';const ic={M:'🌅',E:'🌇',N:'🌙',O:'🏢'}[sh.id]||'';return `<span class="badge mut" title="${esc(sh.start+' – '+sh.end)}">${ic} ${esc(shiftName(sh))}</span>`}
+const hm=m=>`${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`;   // 154 → 2:34
+function lateCell(a,e){const sh=shiftOf(a,e);const l=shiftLate(a,sh),x=shiftEarly(a,sh);const out=[];if(l)out.push(`<span style="color:#B91C1C;font-weight:700" title="${esc(L('Late','تأخير')+' '+l+' '+L('min','دقيقة'))}">⏰ ${hm(l)}</span>`);if(x)out.push(`<span style="color:#B45309;font-weight:700" title="${esc(L('Left early','انصراف مبكر')+' '+x+' '+L('min','دقيقة'))}">↩ ${hm(x)}</span>`);return out.join(' ')||'—'}
 
 /* night shift: a morning punch that closes last night's shift belongs to yesterday */
 function nightPrev(empId,ds,t){const tm=timeMin(t);if(tm==null||tm>=12*60)return null;const d=parseD(ds);if(!d)return null;const pd=dmy(addDays(d,-1));
@@ -1748,10 +1754,22 @@ zkMerge=function(records){const per={};const unknown=new Set();
 
 /* settings card */
 const _setGeneralOrig=setGeneral;
-setGeneral=function(){const S3=SHIFTS();return _setGeneralOrig()+(isAdmin()?`<form id="shf" class="card" onsubmit="return false"><h3>🕒 ${L('Work Shifts','الورديات')}</h3><p class="muted">${L('The shift is detected automatically from the check-in time (or fixed per employee in his file). Night shift 23:00 → 07:00 is counted as one day on the start date.','الوردية بتتحدد تلقائياً من ساعة الدخول (أو ثابتة للموظف من ملفه). الوردية الليلية 11م ← 7ص بتتحسب يوم واحد بتاريخ بدايتها.')}</p>
- <div class="tbl-wrap"><table class="tbl" style="min-width:420px"><thead><tr><th>${L('Shift','الوردية')}</th><th>${L('Start','البداية')}</th><th>${L('End','النهاية')}</th></tr></thead><tbody>${S3.map((s,i)=>`<tr><td><b>${{M:'🌅',E:'🌇',N:'🌙'}[s.id]||''} ${esc(shiftName(s))}</b></td><td><input type="time" name="ss${i}" value="${esc(s.start)}"></td><td><input type="time" name="se${i}" value="${esc(s.end)}"></td></tr>`).join('')}</tbody></table></div>
- <div class="grid mt">${fld(L('Grace minutes before counting late','دقائق السماح قبل حساب التأخير'),`<input type="number" name="sgr" min="0" value="${shiftGrace()}">`)}</div><div class="actions">${btn('💾 '+L('Save shifts','حفظ الورديات'),'saveShifts()','g')}</div></form>`:'')};
-function saveShifts(){const f=document.getElementById('shf');DB.settings.shifts=SHIFTS().map((s,i)=>Object.assign({},s,{start:f.querySelector(`[name=ss${i}]`).value||s.start,end:f.querySelector(`[name=se${i}]`).value||s.end}));DB.settings.shift_grace=num(f.querySelector('[name=sgr]').value);log('Shifts updated','','settings');saveDB();notify(L('Shifts saved','تم حفظ الورديات'));render()}
+setGeneral=function(){const S3=SHIFTS();return _setGeneralOrig()+(isAdmin()?`<form id="shf" class="card" onsubmit="return false"><h3>🕒 ${L('Work Shifts','الورديات')}</h3><p class="muted">${L('Office departments always use office hours; everyone else gets Morning / Evening / Night automatically from the check-in time (or a fixed shift in the employee file). Night shift 23:00 → 07:00 is counted as one day on the start date.','الأقسام الإدارية بتتحسب على مواعيد الإداري دايماً، والباقي بيتحدد له صباحي/مسائي/ليلي تلقائياً من ساعة الدخول (أو وردية ثابتة من ملف الموظف). الوردية الليلية 11م ← 7ص بتتحسب يوم واحد بتاريخ بدايتها.')}</p>
+ <div class="tbl-wrap"><table class="tbl" style="min-width:420px"><thead><tr><th>${L('Shift','الوردية')}</th><th>${L('Start','البداية')}</th><th>${L('End','النهاية')}</th></tr></thead><tbody>${S3.map((s,i)=>`<tr><td><b>${{M:'🌅',E:'🌇',N:'🌙',O:'🏢'}[s.id]||''} ${esc(shiftName(s))}</b></td><td><input type="time" name="ss${i}" value="${esc(s.start)}"></td><td><input type="time" name="se${i}" value="${esc(s.end)}"></td></tr>`).join('')}</tbody></table></div>
+ <div class="grid mt">${fld(L('Grace minutes before counting late','دقائق السماح قبل حساب التأخير'),`<input type="number" name="sgr" min="0" value="${shiftGrace()}">`)}</div>
+ <div class="mt"><b>🏢 ${L('Departments on office hours','الأقسام اللي شغالة بمواعيد الإداري')}</b><div style="display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:8px">${Object.values(DB.departments||{}).sort((a,b)=>String(tv(a.name)).localeCompare(String(tv(b.name)))).map(d=>`<label class="chk" style="padding:0"><input type="checkbox" class="offd" value="${esc(d.dept_id)}" ${officeDepts().includes(d.dept_id)?'checked':''}> ${esc(tv(d.name))}</label>`).join('')||'—'}</div></div><div class="actions">${btn('💾 '+L('Save shifts','حفظ الورديات'),'saveShifts()','g')}</div></form>${fixedShiftCard()}`:'')};
+/* fixed shift for specific employees (overrides department / automatic detection) */
+function fixedShiftCard(){const fx=Object.values(DB.employees).filter(e=>e.shift).sort((a,b)=>String(a.emp_id).localeCompare(String(b.emp_id),undefined,{numeric:true}));const AL=SHIFTS();
+ return `<form id="fxs" class="card" onsubmit="return false"><h3>👤 ${L('Fixed shift for specific employees','وردية ثابتة لموظفين معينين')}</h3><p class="muted">${L('Write the employee codes (separated by comma or space), choose the shift and press Apply. This overrides the department and the automatic detection.','اكتب أكواد الموظفين (بينهم فاصلة أو مسافة)، واختار الوردية، واضغط تطبيق. دي بتتقدم على القسم والتحديد التلقائي.')}</p>
+ <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end"><div class="fld" style="flex:2;min-width:220px"><label>${L('Employee codes','أكواد الموظفين')}</label><input type="text" id="fxCodes" placeholder="12, 35, 245"></div>
+ <div class="fld" style="flex:1;min-width:160px"><label>${L('Shift','الوردية')}</label><select id="fxSh">${AL.map(s=>`<option value="${s.id}">${{M:'🌅',E:'🌇',N:'🌙',O:'🏢'}[s.id]} ${esc(shiftName(s))} ${s.start}–${s.end}</option>`).join('')}<option value="">↺ ${L('Automatic (remove fixed shift)','تلقائي (إلغاء التثبيت)')}</option></select></div>
+ <div>${btn('✔ '+L('Apply','تطبيق'),'applyFixedShift()','g')}</div></div>
+ ${fx.length?`<div class="mt">${table([L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Shift','الوردية'),''],fx.map(e=>{const sh=AL.find(s=>s.id===e.shift);return {c:[esc(e.emp_id),esc(e.name),esc(tv(empDept(e))),sh?`${{M:'🌅',E:'🌇',N:'🌙',O:'🏢'}[sh.id]} ${esc(shiftName(sh))} ${sh.start}–${sh.end}`:esc(e.shift),btn('✖ '+L('Automatic','تلقائي'),`setEmpShift('${esc(e.emp_id)}','')`,'sm d')]}}),{id:'tfx'})}</div>`:`<p class="muted mt">${L('No employee has a fixed shift yet.','مفيش موظفين ليهم وردية ثابتة لسه.')}</p>`}</form>`}
+function setEmpShift(id,sh){const e=getEmp(id);if(!e)return;e.shift=sh;log('Employee shift',`${id} → ${sh||'auto'}`,'settings');saveDB();render()}
+function applyFixedShift(){const codes=String($('#fxCodes').value||'').split(/[\s,،;]+/).map(x=>x.trim()).filter(Boolean);const sh=$('#fxSh').value;if(!codes.length){notify(L('Write at least one employee code','اكتب كود موظف واحد على الأقل'),'err');return}
+ const ok=[],bad=[];codes.forEach(c=>{const e=getEmp(c);if(e){e.shift=sh;ok.push(e.emp_id)}else bad.push(c)});log('Employee shift',`${ok.join(',')} → ${sh||'auto'}`,'settings');saveDB();
+ setFlash(`${L('Done for','تم لـ')} ${ok.length} ${L('employee(s)','موظف')}${bad.length?` — ⚠ ${L('codes not found','أكواد غير موجودة')}: ${bad.join(', ')}`:''}`,bad.length?'err':'ok');render()}
+function saveShifts(){const f=document.getElementById('shf');DB.settings.shifts=SHIFTS().map((s,i)=>Object.assign({},s,{start:f.querySelector(`[name=ss${i}]`).value||s.start,end:f.querySelector(`[name=se${i}]`).value||s.end}));DB.settings.shift_grace=num(f.querySelector('[name=sgr]').value);DB.settings.office_depts=[...f.querySelectorAll('.offd')].filter(c=>c.checked).map(c=>c.value);log('Shifts updated','','settings');saveDB();notify(L('Shifts saved','تم حفظ الورديات'));render()}
 
 /* dashboard: present / absent days of this month */
 const _dashM=ROUTES.dash;ROUTES.dash=(kind)=>{if(kind!=='m_att'&&kind!=='m_abs')return _dashM(kind);const t=today();
@@ -1769,7 +1787,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1792654745';
+const BUILD_ID='1792655361';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
