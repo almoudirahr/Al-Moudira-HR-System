@@ -1545,7 +1545,7 @@ const _dashKinds=ROUTES.dash;ROUTES.dash=(kind)=>{if(!kind||!kind.startsWith('m_
  return head('📅',title,`${rows.length} ${L('records','سجل')}`,'#1E3A5F',btn('← '+L('Back','رجوع'),"go('dashboard')",'ghost')+stdBtns(title,'tdm'))+`<div class="wrap">${searchBox('tdm')}${table(cols,rows.map(r=>({c:r.map(esc)})),{id:'tdm'})}</div>`};
 
 /* ═══════════════════ v67 features — part 2: Mobile GPS Punch (Google Apps Script / Google Sheet) ═══════════════════ */
-const MP_DEF={gsheet_url:'',gsheet_key:'',punch_page_url:'',hotel_lat:0,hotel_lng:0,radius_m:150,max_accuracy_m:100,require_pin:true,require_photo:true,min_gap_minutes:2,auto_sync_minutes:5,last_row:0,leaves_last_row:0};
+const MP_DEF={gsheet_url:'',gsheet_key:'',punch_page_url:'',hotel_lat:0,hotel_lng:0,radius_m:150,max_accuracy_m:100,require_pin:true,require_photo:true,require_face:false,min_gap_minutes:2,auto_sync_minutes:5,last_row:0,leaves_last_row:0};
 const mpCfg=()=>Object.assign({},MP_DEF,DB.mobile_punch||{});
 function mpSet(o){DB.mobile_punch=Object.assign(mpCfg(),o)}
 const mpLocal=()=>{let o={};try{o=JSON.parse(ST.get('modo_hr_mp_local')||'{}')||{}}catch(e){}return Object.assign({auto:true,last:0},o)};
@@ -1610,7 +1610,7 @@ ROUTES.mobile=()=>{const c=mpCfg(),l=mpLocal();const pins=DB.mobile_punch_pins||
   <div class="actions">${btn('💾 '+L('Save','حفظ'),'mpSaveConn()','g')}${btn('🔌 '+L('Test connection','اختبار الاتصال'),'mpTest()','b')}${btn('📋 '+L('Copy employee link','نسخ رابط الموظفين'),'mpCopyLink()','d')}${btn('▦ QR','mpQR()','t')}</div></form><div id="mpQR" class="center"></div>`)}
  ${card('🏨 '+L('Hotel Location & Rules','موقع الفندق وقواعد القبول'),L('Saved here AND pushed to the Google Sheet (the script checks the employee location with these values). Get the coordinates from Google Maps (long-press on the hotel).','تُحفظ هنا وتُرسل إلى الشيت — السكريبت يفحص موقع الموظف بهذه القيم. احصل على الإحداثيات من خرائط جوجل (ضغطة مطوّلة على الفندق).'),
   `<form id="frmGeo" onsubmit="return false"><div class="grid">${[['hotel_lat',L('Latitude','خط العرض')],['hotel_lng',L('Longitude','خط الطول')],['radius_m',L('Allowed radius (m)','نصف القطر المسموح (م)')],['max_accuracy_m',L('Max GPS error (m)','أقصى خطأ GPS (م)')],['min_gap_minutes',L('Min gap between punches (min)','أقل فاصل بين البصمات (دقيقة)')]].map(([k,lb])=>fld(lb,`<input type="text" name="${k}" dir="ltr" value="${esc(c[k])}">`)).join('')}</div>
-  <label class="chk"><input type="checkbox" name="require_pin" ${c.require_pin?'checked':''}> ${L('Require PIN with the clock number','طلب رقم سري مع رقم البصمة')}</label><label class="chk"><input type="checkbox" name="require_photo" ${c.require_photo?'checked':''}> ${L('Require face photo (selfie) with every punch','التقاط صورة الوجه مع كل بصمة')}</label>
+  <label class="chk"><input type="checkbox" name="require_pin" ${c.require_pin?'checked':''}> ${L('Require PIN with the clock number','طلب رقم سري مع رقم البصمة')}</label><label class="chk"><input type="checkbox" name="require_photo" ${c.require_photo?'checked':''}> ${L('Require face photo (selfie) with every punch','التقاط صورة الوجه مع كل بصمة')}</label><label class="chk"><input type="checkbox" name="require_face" ${c.require_face?'checked':''}> 🧑 ${L('Face recognition: the face must match the employee\'s registered face','التعرّف على الوجه: لازم الوش يطابق وش الموظف المسجّل')}</label>
   <div class="actions">${btn('💾 '+L('Save & push to sheet','حفظ وإرسال إلى الشيت'),'mpSaveGeo()','g')}${btn('🗺️ '+L('Open in Google Maps','فتح في خرائط جوجل'),'mpMap()','b')}</div></form>`)}
  ${card('🔑 '+L('Employee PINs','الأرقام السرية للموظفين'),L('Employees log in with Clock No (= Employee ID) + PIN. Press «Push to sheet» after any change.','الموظف يدخل برقم البصمة (كود الموظف) والرقم السري. اضغط «إرسال إلى الشيت» بعد أي تعديل.'),
   `<p style="font-weight:700;color:#0F766E;margin:0 0 10px">👥 ${L('Active employees','الموظفون النشطون')}: ${act.length} &nbsp;|&nbsp; 🔑 ${L('With PIN','لديهم رقم سري')}: ${withPin} &nbsp;|&nbsp; ⚠️ ${L('Missing PIN','بدون رقم سري')}: ${act.length-withPin}</p>
@@ -1629,9 +1629,9 @@ function mpCopyLink(){const u=mpLink();if(!u){notify(L('Enter the employee page 
 function mpQR(){const u=mpLink();if(!u){notify(L('Enter the employee page URL first','أدخل رابط صفحة الموظفين أولاً'),'err');return}const box=$('#mpQR');
  const draw=()=>{box.innerHTML=`<div class="card" style="display:inline-block"><div id="mpQRc" style="padding:10px;background:#fff;display:inline-block"></div><p>${L('Scan to open the punch page','امسح الكود لفتح صفحة البصمة')}</p>${btn('✕','$("#mpQR").innerHTML=""','sm d')}</div>`;new QRCode(document.getElementById('mpQRc'),{text:u,width:280,height:280})};
  if(window.QRCode)return draw();const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';s.onload=draw;s.onerror=()=>{box.innerHTML=`<img alt="QR" src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(u)}">`};document.head.appendChild(s)}
-async function mpSaveGeo(){const f=document.getElementById('frmGeo');const g=k=>String(f.querySelector(`[name=${k}]`).value).trim().replace(',','.');const o={hotel_lat:parseFloat(g('hotel_lat'))||0,hotel_lng:parseFloat(g('hotel_lng'))||0,radius_m:Math.round(num(g('radius_m'))||150),max_accuracy_m:Math.round(num(g('max_accuracy_m'))||100),min_gap_minutes:Math.round(num(g('min_gap_minutes'))||2),require_pin:f.querySelector('[name=require_pin]').checked,require_photo:f.querySelector('[name=require_photo]').checked};
+async function mpSaveGeo(){const f=document.getElementById('frmGeo');const g=k=>String(f.querySelector(`[name=${k}]`).value).trim().replace(',','.');const o={hotel_lat:parseFloat(g('hotel_lat'))||0,hotel_lng:parseFloat(g('hotel_lng'))||0,radius_m:Math.round(num(g('radius_m'))||150),max_accuracy_m:Math.round(num(g('max_accuracy_m'))||100),min_gap_minutes:Math.round(num(g('min_gap_minutes'))||2),require_pin:f.querySelector('[name=require_pin]').checked,require_photo:f.querySelector('[name=require_photo]').checked,require_face:!!(f.querySelector('[name=require_face]')||{}).checked};
  if(!(o.hotel_lat>=-90&&o.hotel_lat<=90&&o.hotel_lng>=-180&&o.hotel_lng<=180)){notify(L('Invalid coordinates','إحداثيات غير صحيحة'),'err');return}mpSet(o);saveDB();
- try{await gsReq('set_config',{config:{hotel_lat:o.hotel_lat,hotel_lng:o.hotel_lng,radius_m:o.radius_m,max_accuracy_m:o.max_accuracy_m,require_pin:o.require_pin,require_photo:o.require_photo,min_gap_minutes:o.min_gap_minutes}});notify(L('Saved and sent to the Google Sheet ✅','تم الحفظ وإرسال الإعدادات إلى جوجل شيت ✅'))}catch(e){notify(L('Saved in the program, but sending to the sheet failed: ','تم الحفظ في البرنامج لكن فشل الإرسال إلى الشيت: ')+e.message,'err')}}
+ try{await gsReq('set_config',{config:{hotel_lat:o.hotel_lat,hotel_lng:o.hotel_lng,radius_m:o.radius_m,max_accuracy_m:o.max_accuracy_m,require_pin:o.require_pin,require_photo:o.require_photo,require_face:o.require_face,min_gap_minutes:o.min_gap_minutes}});notify(L('Saved and sent to the Google Sheet ✅','تم الحفظ وإرسال الإعدادات إلى جوجل شيت ✅'))}catch(e){notify(L('Saved in the program, but sending to the sheet failed: ','تم الحفظ في البرنامج لكن فشل الإرسال إلى الشيت: ')+e.message,'err')}}
 function mpMap(){const f=document.getElementById('frmGeo');const la=parseFloat(f.hotel_lat.value)||0,ln=parseFloat(f.hotel_lng.value)||0;window.open(la||ln?`https://www.google.com/maps?q=${la},${ln}`:'https://www.google.com/maps/search/Al+Moudira+Hotel+Luxor','_blank')}
 function mpPinLook(){const e=getEmp($('#mpPinCode').value.trim());$('#mpPinInfo').innerHTML=e?`<div class="empcard"><span>👤 <b>${esc(e.name)}</b> (${esc(e.emp_id)})</span><span>🏢 ${esc(tv(empDept(e)))}</span><span>🔑 ${L('Current PIN','الرقم الحالي')}: <b dir="ltr">${esc(DB.mobile_punch_pins[e.emp_id]||'—')}</b></span></div>`:''}
 function mpSetPin(){const e=getEmp($('#mpPinCode').value.trim());if(!e){notify(L('Enter a valid Clock No','أدخل رقم موظف صحيح'),'err');return}const p=$('#mpPinNew').value.trim();if(p)DB.mobile_punch_pins[e.emp_id]=p;else delete DB.mobile_punch_pins[e.emp_id];saveDB();notify(L('PIN saved — press «Push to sheet»','تم حفظ الرقم السري — اضغط «إرسال إلى الشيت»'));render()}
@@ -2060,6 +2060,63 @@ mpPhoto=function(url,cap,id){const src=mpThumb(url).replace('sz=w400','sz=w600')
 async function mpKeepPhoto(id,url){const e=getEmp(id);if(!e)return;const t=mpThumb(url);let val=t;
  try{val=await new Promise((ok,bad)=>{const img=new Image();img.crossOrigin='anonymous';img.onload=()=>{try{const s=Math.min(1,220/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=img.width*s;c.height=img.height*s;c.getContext('2d').drawImage(img,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',0.82))}catch(x){bad(x)}};img.onerror=bad;img.src=t})}catch(x){val=t}   // Google may refuse a copy → keep the link
  e.employee_photo=val;log('Employee photo from mobile punch',`${id} ${e.name}`,'employees');saveDB();notify(L('Saved as the employee photo','اتحفظت كصورة الموظف'));const cap=($('#mpPhoto p b')||{}).textContent||'';mpPhoto(url,cap,id)}
+/* ═══════════ Mobile punch — Face enrollment management (Faces sheet) ═══════════
+   • The employee's first punch with face check on registers his face as "Pending" (with a photo)
+   • HR reviews it here: enrollment photo next to the employee file photo → Approve / Reject / Reset
+   • Reset = delete the enrollment, the next punch registers the face again */
+ROUTE_KEY.faces='settings';
+let _fc={rows:null,at:0,err:'',busy:false};
+const fcNorm=v=>String(v==null?'':v).trim().replace(/^0+(?=\d)/,'');
+function fcEmp(id){const n=fcNorm(id);return getEmp(id)||Object.values(DB.employees).find(e=>fcNorm(e.emp_id)===n||fcNorm(e.clock_no)===n)||null}
+function fcLatest(rows){const m={};(rows||[]).forEach(r=>{const k=fcNorm(r.emp_id);if(!m[k]||num(r.row)>num(m[k].row))m[k]=r});return Object.values(m)}
+async function fcLoad(silent){if(_fc.busy)return;_fc.busy=true;_fc.err='';if(!silent&&S.rendered&&/faces/.test(S.rendered))render();
+ try{const j=await gsReq('pull_faces',{},60000);_fc.rows=fcLatest(j.rows);_fc.at=Date.now()}catch(e){_fc.err=e.message||String(e)}
+ _fc.busy=false;if(/faces/.test(S.rendered||'')||/mobile/.test(S.rendered||''))render()}
+const fcPending=()=>(_fc.rows||[]).filter(r=>r.status==='Pending').length;
+async function fcSet(id,status){const r=(_fc.rows||[]).find(x=>fcNorm(x.emp_id)===fcNorm(id));const note=(($('#fcNote_'+CSS.escape(String(id)))||{}).value||'').trim();
+ try{const j=await gsReq('set_face_status',{emp_id:String(id),status,note},60000);
+  if(!j.updated){notify(L('Nothing changed in the sheet (only Pending/Approved can be approved or rejected)','مفيش حاجة اتغيرت في الشيت (الموافقة/الرفض بس على Pending أو Approved)'),'err');return}
+  if(r){r.status=status;r.decided=new Date().toLocaleString()}
+  log('Face '+status,`${id} ${(r&&r.name)||''}`,'settings');
+  notify({Approved:L('Face approved','تمت الموافقة على الوجه'),Rejected:L('Face rejected — the employee cannot punch until Reset','تم رفض الوجه — الموظف مش هيقدر يبصم لحد ما تعمل إعادة تسجيل'),Reset:L('Enrollment cleared — his next punch registers the face again','اتمسح التسجيل — أول بصمة جاية هتسجّل وشه من جديد')}[status]);
+  render()}catch(e){notify(e.message,'err')}}
+async function fcKeep(id,url){try{await mpKeepPhoto(id,url)}catch(e){}render()}
+ROUTES.faces=()=>{if(!canApprove())return head('🔒',L('HR only','للموارد البشرية فقط'),'','#7F1D1D');
+ const c=mpCfg();if(!c.gsheet_url)return head('🧑',L('Face Enrollment','تسجيل الوجوه'),'')+`<div class="card"><p>${L('Set the Google Apps Script URL first in Settings → Mobile GPS Punch.','حط رابط Google Apps Script الأول في الإعدادات ← البصمة عبر الموبايل.')}</p>${btn('⚙️ '+L('Open','افتح'),"go('mobile')",'b')}</div>`;
+ if(!_fc.rows&&!_fc.busy&&!_fc.err)setTimeout(()=>fcLoad(true),0);
+ const f=S.tmp.fcF||'Pending',qs=(S.tmp.fcQ||'').toLowerCase();const all=_fc.rows||[];
+ const cnt=s=>all.filter(r=>s==='all'||r.status===s).length;
+ const list=all.filter(r=>(f==='all'||r.status===f)&&(!qs||(String(r.name)+' '+r.emp_id).toLowerCase().includes(qs))).sort((a,b)=>(a.status==='Pending'?0:1)-(b.status==='Pending'?0:1)||num(b.row)-num(a.row));
+ const col={Pending:'#B45309',Approved:'#047857',Rejected:'#B91C1C',Reset:'#475569'},ar={Pending:'منتظر',Approved:'معتمد',Rejected:'مرفوض',Reset:'إعادة تسجيل'};
+ const tab=(k,t)=>`<button type="button" class="btn sm ${f===k?'b':''}" onclick="S.tmp.fcF='${k}';render()">${t} <b>(${cnt(k)})</b></button>`;
+ const warn=!c.require_face?`<div class="card" style="background:#FFFBEB;border-color:#FCD34D">⚠️ ${L('Face recognition is OFF — faces are not enrolled or checked. Turn on "Face recognition" in Mobile GPS Punch settings and press Save.','التعرّف على الوجه مقفول — الوجوه مش بتتسجل ولا بتتطابق. فعّل «التعرّف على الوجه» في إعدادات البصمة عبر الموبايل واضغط حفظ.')} ${btn('⚙️ '+L('Settings','الإعدادات'),"go('mobile')",'sm b')}</div>`:'';
+ const cards=list.map(r=>{const e=fcEmp(r.emp_id),cur=e&&e.employee_photo,src=r.photo?mpThumb(r.photo):'',id=String(r.emp_id);
+  const img=(s,lbl)=>`<div class="center" style="flex:1;min-width:120px"><div class="muted" style="font-size:11.5px;margin-bottom:4px">${lbl}</div>${s?`<img src="${esc(s)}" style="width:140px;height:160px;object-fit:cover;border-radius:10px;background:#F1F5F9" alt="" onerror="this.style.opacity=.25">`:`<div style="width:140px;height:160px;margin:auto;border:2px dashed #CBD5E1;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94A3B8">—</div>`}</div>`;
+  return `<div class="card" style="padding:12px;margin:0;border-top:4px solid ${col[r.status]||'#94A3B8'}">
+   <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><div><b>${esc(r.name||(e&&e.name)||'')}</b><div class="muted" style="font-size:12px">#${esc(id)}${e?' · '+esc(mpDept(e)):' · <span style="color:#B91C1C">'+L('not in the program','مش موجود في البرنامج')+'</span>'}</div></div>
+   <span style="background:${col[r.status]||'#94A3B8'};color:#fff;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700">${S.lang==='ar'?(ar[r.status]||r.status):r.status}</span></div>
+   <div style="display:flex;gap:8px;margin:10px 0">${img(src,'🧑 '+L('Enrollment photo','صورة التسجيل'))}${img(cur,'👤 '+L('Employee file photo','صورة ملف الموظف'))}</div>
+   <div class="muted" style="font-size:11.5px">${L('Enrolled','اتسجل')}: ${esc(r.enrolled||'—')}${r.decided?' · '+L('Decided','القرار')+': '+esc(r.decided):''}</div>
+   ${r.status!=='Reset'?`<input id="fcNote_${esc(id)}" placeholder="${L('Note (optional)','ملاحظة (اختياري)')}" style="width:100%;margin:8px 0 6px">`:''}
+   <div class="actions" style="flex-wrap:wrap;gap:6px;margin-top:6px">
+    ${r.status==='Pending'||r.status==='Rejected'?btn('✅ '+L('Approve','موافقة'),`fcSet(${q(id)},'Approved')`,'sm g'):''}
+    ${r.status==='Pending'||r.status==='Approved'?dbtn('⛔ '+L('Reject','رفض'),`fcSet(${q(id)},'Rejected')`,'sm r'):''}
+    ${r.status!=='Reset'?dbtn('🔄 '+L('Reset','إعادة تسجيل'),`fcSet(${q(id)},'Reset')`,'sm'):''}
+    ${e&&r.photo?btn('💾 '+L(cur?'Use as file photo':'Save as file photo',cur?'خليها صورة الملف':'احفظها صورة الملف'),`fcKeep(${q(String(e.emp_id))},${q(r.photo)})`,'sm t'):''}
+    ${r.photo?`<a class="btn sm" href="${esc(r.photo)}" target="_blank" rel="noopener">↗ ${L('Open','فتح')}</a>`:''}
+   </div></div>`}).join('');
+ return head('🧑',L('Face Enrollment','تسجيل الوجوه'),L('Faces registered from the mobile punch — compare with the employee photo, then approve or reject','الوجوه اللي اتسجلت من بصمة الموبايل — قارنها بصورة الموظف ووافق أو ارفض'),'#0F766E',btn('⬅ '+L('Mobile Punch','بصمة الموبايل'),"go('mobile')",'sm'))+warn+
+  `<div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${tab('Pending',L('Pending','منتظر'))}${tab('Approved',L('Approved','معتمد'))}${tab('Rejected',L('Rejected','مرفوض'))}${tab('Reset',L('Reset','إعادة تسجيل'))}${tab('all',L('All','الكل'))}
+   <input placeholder="🔍 ${L('Name or Clock No','الاسم أو رقم البصمة')}" value="${esc(S.tmp.fcQ||'')}" oninput="S.tmp.fcQ=this.value;clearTimeout(window._fcT);window._fcT=setTimeout(()=>{render();const i=document.querySelector('#fcQ');i&&(i.focus(),i.setSelectionRange(i.value.length,i.value.length))},350)" id="fcQ" style="flex:1;min-width:160px">
+   ${btn(_fc.busy?'⏳ '+L('Loading…','جاري التحميل…'):'🔄 '+L('Refresh','تحديث'),'fcLoad()','sm b')}<span class="muted" style="font-size:12px">${_fc.at?L('Updated','آخر تحديث')+' '+new Date(_fc.at).toLocaleTimeString():''}</span></div>`+
+  (_fc.err?`<div class="card" style="background:#FEF2F2;color:#991B1B">❌ ${esc(_fc.err)}</div>`:'')+
+  (_fc.rows&&!list.length?`<div class="card muted center">${L('Nothing here','مفيش حاجة هنا')}</div>`:'')+
+  `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px">${cards}</div>`};
+/* entry card on the Mobile Punch page */
+(function(){const orig=ROUTES.mobile;ROUTES.mobile=function(){const h=orig.apply(this,arguments);if(!canApprove()||!mpCfg().gsheet_url)return h;
+ if(!_fc.rows&&!_fc.busy&&!_fc.err&&!_fc.at)setTimeout(()=>fcLoad(true),400);const p=fcPending();
+ const box=`<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-inline-start:4px solid #0F766E"><div style="font-size:28px">🧑</div><div style="flex:1;min-width:200px"><b>${L('Face Enrollment','تسجيل الوجوه')}</b>${p?` <span style="background:#B45309;color:#fff;border-radius:20px;padding:1px 9px;font-size:12px">${p} ${L('pending','منتظر')}</span>`:''}<div class="muted" style="font-size:12.5px">${L('Review and approve the faces employees registered from their phones','راجع ووافق على الوجوه اللي الموظفين سجّلوها من موبايلاتهم')}</div></div>${btn(L('Open','افتح')+' ←','go(\'faces\')','b')}</div>`;
+ const i=h.indexOf('<div class="card"');return i<0?h+box:h.slice(0,i)+box+h.slice(i)}})();
 
 /* ═══════════════════ ONLINE MULTI-USER ENGINE ═══════════════════
    All users work at the same time. Every change is detected per record,
@@ -2070,7 +2127,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1792847915';
+const BUILD_ID='1792848734';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
