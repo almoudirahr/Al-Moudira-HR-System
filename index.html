@@ -1601,7 +1601,7 @@ setInterval(()=>{if(!S.user||!DB)return;const c=mpCfg(),l=mpLocal();const mins=n
 
 /* Settings → Mobile GPS Punch (same cards as the desktop v67) */
 ROUTES.mobile=()=>{const c=mpCfg(),l=mpLocal();const pins=DB.mobile_punch_pins||{};const act=Object.values(DB.employees).filter(e=>!mpIsRes(e));const withPin=act.filter(e=>pins[e.emp_id]).length;
- const prev=(()=>{let [m,y]=curPeriod();m--;if(m<1){m=12;y--}return new Date(y,m-1,1)})();   // last completed payroll monthconst card=(t,sub,body)=>`<div class="card" style="padding:0;overflow:hidden"><div style="background:#F0FDFA;padding:10px 15px"><b style="color:#115E59">${t}</b></div>${sub?`<p class="muted" style="padding:8px 15px 0;margin:0;font-size:12.5px">${sub}</p>`:''}<div style="padding:12px 15px">${body}</div></div>`;
+ const prev=(()=>{let [m,y]=curPeriod();m--;if(m<1){m=12;y--}return new Date(y,m-1,1)})();/* last completed payroll month */const card=(t,sub,body)=>`<div class="card" style="padding:0;overflow:hidden"><div style="background:#F0FDFA;padding:10px 15px"><b style="color:#115E59">${t}</b></div>${sub?`<p class="muted" style="padding:8px 15px 0;margin:0;font-size:12.5px">${sub}</p>`:''}<div style="padding:12px 15px">${body}</div></div>`;
  return head('📍',L('MOBILE GPS PUNCH','البصمة عبر الموبايل (Google Sheets)'),L('The punch page is hosted outside the program — punches are pulled from the Google Sheet.','صفحة البصمة مستضافة خارج البرنامج — يتم سحب البصمات من جوجل شيت.'),'#0F766E',btn('← '+L('Back','رجوع'),"go('settings')",'','style="background:#2563EB;color:#fff"'))
  +`<div class="wrap"><div id="mpRes"></div>
  ${card('🔗 '+L('Google Apps Script Connection','الربط بجوجل شيت'),L('Paste the Web App URL (ends with /exec) and the same API key you put in the script.','الصق رابط الـ Web App (ينتهي بـ /exec) ونفس المفتاح السري الذي وضعته في السكريبت.'),
@@ -2047,7 +2047,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1792844032';
+const BUILD_ID='1792847142';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
