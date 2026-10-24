@@ -2078,7 +2078,7 @@ async function fcSet(id,status){const r=(_fc.rows||[]).find(x=>fcNorm(x.emp_id)=
   if(!j.updated){notify(L('Nothing changed in the sheet (only Pending/Approved can be approved or rejected)','مفيش حاجة اتغيرت في الشيت (الموافقة/الرفض بس على Pending أو Approved)'),'err');return}
   if(r){r.status=status;r.decided=new Date().toLocaleString()}
   log('Face '+status,`${id} ${(r&&r.name)||''}`,'settings');
-  notify({Approved:L('Face approved','تمت الموافقة على الوجه'),Rejected:L('Face rejected — the employee cannot punch until Reset','تم رفض الوجه — الموظف مش هيقدر يبصم لحد ما تعمل إعادة تسجيل'),Reset:L('Enrollment cleared — his next punch registers the face again','اتمسح التسجيل — أول بصمة جاية هتسجّل وشه من جديد')}[status]);
+  notify({Approved:L('Face approved','تمت الموافقة على الوجه'),Rejected:L('Face rejected — his next punch registers the face again for your approval','تم رفض الوجه — أول بصمة جاية هتسجّل وشه من جديد وتستنى موافقتك'),Reset:L('Enrollment cleared — his next punch registers the face again','اتمسح التسجيل — أول بصمة جاية هتسجّل وشه من جديد')}[status]);
   render()}catch(e){notify(e.message,'err')}}
 async function fcKeep(id,url){try{await mpKeepPhoto(id,url)}catch(e){}render()}
 ROUTES.faces=()=>{if(!canApprove())return head('🔒',L('HR only','للموارد البشرية فقط'),'','#7F1D1D');
@@ -2117,6 +2117,18 @@ ROUTES.faces=()=>{if(!canApprove())return head('🔒',L('HR only','للموار�
  if(!_fc.rows&&!_fc.busy&&!_fc.err&&!_fc.at)setTimeout(()=>fcLoad(true),400);const p=fcPending();
  const box=`<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-inline-start:4px solid #0F766E"><div style="font-size:28px">🧑</div><div style="flex:1;min-width:200px"><b>${L('Face Enrollment','تسجيل الوجوه')}</b>${p?` <span style="background:#B45309;color:#fff;border-radius:20px;padding:1px 9px;font-size:12px">${p} ${L('pending','منتظر')}</span>`:''}<div class="muted" style="font-size:12.5px">${L('Review and approve the faces employees registered from their phones','راجع ووافق على الوجوه اللي الموظفين سجّلوها من موبايلاتهم')}</div></div>${btn(L('Open','افتح')+' ←','go(\'faces\')','b')}</div>`;
  const i=h.indexOf('<div class="card"');return i<0?h+box:h.slice(0,i)+box+h.slice(i)}})();
+/* ═══ keep the Google Sheet employee list (PINs sheet) up to date automatically ═══
+   new employee / name / department / PIN / resignation change → pushed to the sheet within ~20s,
+   so a newly added employee can punch from the mobile right away (no manual "Send to sheet") */
+let _mpAutoBusy=false;
+function mpPinsSig(){return JSON.stringify(Object.values(DB.employees).filter(e=>!mpIsRes(e)).map(e=>[String(e.emp_id),e.name,mpDept(e),(DB.mobile_punch_pins||{})[e.emp_id]||'']).sort((a,b)=>a[0]<b[0]?-1:1))}
+async function mpAutoPins(){if(_mpAutoBusy||!S.user||!DB||!DB.employees||!canApprove())return;const c=mpCfg();if(!c.gsheet_url)return;
+ DB.mobile_punch_pins=DB.mobile_punch_pins||{};
+ const fresh=Object.values(DB.employees).filter(e=>!mpIsRes(e)&&!DB.mobile_punch_pins[e.emp_id]);
+ if(fresh.length&&c.require_pin){mpGenPins();if(fresh.length<=3)fresh.forEach(e=>notify(L(`Mobile PIN for ${e.name}: ${DB.mobile_punch_pins[e.emp_id]}`,`الرقم السري للموبايل لـ ${e.name}: ${DB.mobile_punch_pins[e.emp_id]}`)))}
+ const sig=mpPinsSig();let last='';try{last=localStorage.getItem('mp_pins_sig')||''}catch(e){}if(sig===last)return;
+ _mpAutoBusy=true;try{await mpPushPins();try{localStorage.setItem('mp_pins_sig',sig)}catch(e){}}catch(e){console.warn('auto pins',e)}finally{_mpAutoBusy=false}}
+setInterval(mpAutoPins,20000);setTimeout(mpAutoPins,8000);
 
 /* ═══════════════════ ONLINE MULTI-USER ENGINE ═══════════════════
    All users work at the same time. Every change is detected per record,
@@ -2127,7 +2139,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1792848734';
+const BUILD_ID='1792849292';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
