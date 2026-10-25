@@ -313,8 +313,9 @@ const pad=n=>String(n).padStart(2,'0');
 function mkD(y,m,d){const x=new Date(y,m-1,d);return x.getFullYear()===y&&x.getMonth()===m-1&&x.getDate()===d?x:null}
 function parseD(s){if(!s)return null;if(s instanceof Date)return new Date(s.getFullYear(),s.getMonth(),s.getDate());s=String(s).trim();let m;
  if((m=s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/)))return mkD(+m[1],+m[2],+m[3]);
- if((m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/))){let y=+m[3];if(y<100)y+=2000;return mkD(y,+m[2],+m[1])}
+ if((m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/))){let y=+m[3];if(y<100)y+=(y+2000>new Date().getFullYear()+5?1900:2000);return mkD(y,+m[2],+m[1])||(+m[2]>12&&+m[1]<=12?mkD(y,+m[1],+m[2]):null)}/* day/month/year; an impossible month (e.g. 10/25/1990 from a US-format file) is read as month/day */
  if(/^\d{5}(\.\d+)?$/.test(s)){const b=new Date(1899,11,30);b.setDate(b.getDate()+Math.floor(+s));return parseD(b)}
+ if(/[a-z]{3}/i.test(s)&&/\d{4}/.test(s)){const x=new Date(s);if(!isNaN(x))return new Date(x.getFullYear(),x.getMonth(),x.getDate())}
  return null}
 const dmy=d=>d?`${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`:'';
 const iso=d=>d?`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`:'';
@@ -492,7 +493,7 @@ function readSheet(file){return new Promise((res,rej)=>{const rd=new FileReader(
  if(/\.(dat|txt)$/i.test(file.name)){rd.onload=()=>res(String(rd.result).split(/\r?\n/).filter(l=>l.trim()).map(l=>l.trim().split(/\t|\s{2,}|,/)));rd.readAsText(file);return}
  if(/\.csv$/i.test(file.name)&&typeof XLSX==='undefined'){rd.onload=()=>res(String(rd.result).replace(/^\ufeff/,'').split(/\r?\n/).filter(l=>l.trim()).map(l=>l.split(',').map(c=>c.replace(/^"|"$/g,''))));rd.readAsText(file);return}
  if(typeof XLSX==='undefined'){rej(new Error('Excel library not loaded'));return}
- rd.onload=()=>{try{const wb=XLSX.read(new Uint8Array(rd.result),{type:'array',cellDates:true});const ws=wb.Sheets[wb.SheetNames[0]];res(XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'dd/mm/yyyy',defval:''}))}catch(e){rej(e)}};rd.readAsArrayBuffer(file)})}
+ rd.onload=()=>{try{const wb=xlFixDates(XLSX.read(new Uint8Array(rd.result),{type:'array',cellDates:true,dateNF:'dd/mm/yyyy'}));const ws=wb.Sheets[wb.SheetNames[0]];res(XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'dd/mm/yyyy',defval:''}))}catch(e){rej(e)}};rd.readAsArrayBuffer(file)})}
 
 /* ═══════════════════ Payroll engine (unified — same as v65 monthly report) ═══════════════════ */
 function payrollRow(emp,m,y){
@@ -1271,7 +1272,7 @@ function resetAll(){backupNow();const keep={sync_url:DB.settings.sync_url,sync_k
 
 /* ═══════════════════ Excel backup import (desktop v65 "HR_Backup_*.xlsx" — all sheets) ═══════════════════ */
 function readBook(file){return new Promise((res,rej)=>{if(typeof XLSX==='undefined'){rej(new Error(L('Excel library not loaded — check the internet connection and reopen the page','مكتبة Excel غير محمّلة — تأكد من الاتصال بالإنترنت وأعد فتح الصفحة')));return}
- const rd=new FileReader();rd.onerror=()=>rej(rd.error);rd.onload=()=>{try{const wb=XLSX.read(new Uint8Array(rd.result),{type:'array',cellDates:true});const sheets={};
+ const rd=new FileReader();rd.onerror=()=>rej(rd.error);rd.onload=()=>{try{const wb=xlFixDates(XLSX.read(new Uint8Array(rd.result),{type:'array',cellDates:true,dateNF:'dd/mm/yyyy'}));const sheets={};
   wb.SheetNames.forEach(n=>{sheets[n.trim().toLowerCase()]=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false,dateNF:'dd/mm/yyyy',defval:''})});res({names:wb.SheetNames,sheets})}catch(e){rej(e)}};rd.readAsArrayBuffer(file)})}
 const XL_ALIAS={emp_id:['emp id','emp_id','employee id','id','code','كود','كود الموظف'],name:['name','first name','full name','employee name','الاسم'],arabic_name:['arabic name','الاسم بالعربي'],salary:['basic salary','salary','الأساسي','المرتب']};
 function hdrIndex(row){const h=row.map(c=>String(c??'').trim().toLowerCase());return name=>{const keys=Array.isArray(name)?name:[name];for(const k of keys){const i=h.indexOf(String(k).toLowerCase());if(i>=0)return i}return -1}}
@@ -2151,6 +2152,54 @@ const zkAgo=m=>m<1?L('just now','دلوقتي'):m<60?L(`${Math.round(m)} min ago
    if(/^#\/(attendance|dashboard|dash)/.test(getHash()))render();return null}
   if(h){notify('⚠️ '+L(`The fingerprint PC "${h.pc}" stopped reporting ${zkAgo(h.age)} — it is probably off, asleep or without internet. Turn it on and the bridge continues by itself (it catches up on the missed punches).`,`كمبيوتر البصمة «${h.pc}» مبعتش أي إشارة ${zkAgo(h.age)} — غالبًا مقفول أو نايم أو النت فاصل عنده. شغّله والبرنامج هيكمّل لوحده ويسحب البصمات اللي فاتت.`),'err');return null}
   return orig(opts)}})();
+/* ═══════════ One date format everywhere: dd/mm/yyyy ═══════════
+   • The browser's own date box shows the date in the computer's language (often mm/dd/yyyy) — typing 05/10 there
+     saved 10 May instead of 5 Oct. Every date box is now a dd/mm/yyyy text box (with a 📅 calendar button);
+     the code behind it still gets the same value as before, so nothing else changes.
+   • Excel import: date cells are read as dd/mm/yyyy (not the US m/d/yy).
+   • Stored employee dates are rewritten once in dd/mm/yyyy. */
+
+/* Excel: write every date cell as dd/mm/yyyy (time-only cells untouched) */
+function xlFixDates(wb){try{(wb.SheetNames||[]).forEach(n=>{const ws=wb.Sheets[n];if(!ws)return;for(const a in ws){if(a[0]==='!')continue;const c=ws[a];
+  if(!c||c.t!=='d'||!(c.v instanceof Date)||isNaN(c.v))continue;const z=String(c.z||'');if(/h|s/i.test(z.replace(/"[^"]*"/g,''))&&!/[dy]/i.test(z))continue;
+  if(c.v.getFullYear()<1901&&/h/i.test(z))continue;const d=new Date(c.v.getTime()+12*3600e3);/* old SheetJS dates can be a few minutes before midnight */c.w=dmy(new Date(d.getFullYear(),d.getMonth(),d.getDate()))}})}catch(e){console.warn('xlFixDates',e)}return wb}
+
+/* date boxes */
+const _ivd=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
+function dEnh(inp){if(inp._dx||!inp.parentNode)return;inp._dx=1;
+ const t=document.createElement('input');t.type='text';t.className='dtx';t.placeholder='dd/mm/yyyy';t.setAttribute('inputmode','numeric');t.autocomplete='off';t.dir='ltr';t.maxLength=10;
+ if(inp.required){t.required=true;inp.required=false}if(inp.disabled)t.disabled=true;if(inp.readOnly)t.readOnly=true;if(inp.title)t.title=inp.title;
+ const st=inp.getAttribute('style');if(st)t.setAttribute('style',st);
+ const w=document.createElement('div');w.className='dwrap';inp.parentNode.insertBefore(w,inp);w.appendChild(t);w.appendChild(inp);
+ const b=document.createElement('button');b.type='button';b.className='dcal';b.textContent='📅';b.tabIndex=-1;b.title=L('Calendar','التقويم');if(!t.disabled&&!t.readOnly)w.appendChild(b);
+ inp.classList.add('dhid');inp.tabIndex=-1;
+ const show=()=>{const v=_ivd.get.call(inp);const d=v?parseD(v):null;t.value=d?dmy(d):''};
+ Object.defineProperty(inp,'value',{configurable:true,get(){return _ivd.get.call(this)},set(v){const d=v?parseD(v):null;_ivd.set.call(this,d?iso(d):'');show()}});
+ Object.defineProperty(inp,'disabled',{configurable:true,get(){return t.disabled},set(v){t.disabled=!!v;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'disabled').set.call(inp,!!v)}});
+ show();
+ const fire=()=>{inp.dispatchEvent(new Event('input',{bubbles:true}));inp.dispatchEvent(new Event('change',{bubbles:true}))};
+ const put=d=>{const v=d?iso(d):'';if(_ivd.get.call(inp)!==v){_ivd.set.call(inp,v);fire()}};
+ t.addEventListener('input',e=>{let s=t.value.replace(/[^\d\/.\-]/g,'').replace(/[.\-]/g,'/');
+  if(e.inputType&&e.inputType.indexOf('insert')===0&&(/^\d{2}$/.test(s)||/^\d{1,2}\/\d{2}$/.test(s)))s+='/';
+  if(s!==t.value)t.value=s;t.setCustomValidity('');
+  if(!s)put(null);else if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)){const d=parseD(s);if(d)put(d)}});
+ t.addEventListener('blur',()=>{const s=t.value.trim();if(!s){put(null);return}const d=parseD(s);
+  if(d){t.value=dmy(d);put(d);t.setCustomValidity('')}else{t.setCustomValidity(L('Write the date as day/month/year, e.g. 25/10/1990','اكتب التاريخ يوم/شهر/سنة، مثلاً 25/10/1990'));t.reportValidity()}});
+ t.addEventListener('keydown',e=>{if(e.key==='Enter'){const d=parseD(t.value);if(d){t.value=dmy(d);put(d)}}});
+ inp.addEventListener('change',e=>{if(e.isTrusted)show()});inp.addEventListener('input',e=>{if(e.isTrusted)show()});
+ b.onclick=()=>{try{inp.showPicker()}catch(e){try{inp.focus();inp.click()}catch(x){}}}}
+function dEnhAll(root){(root||document).querySelectorAll('input[type=date]').forEach(dEnh)}
+(function(){const css=document.createElement('style');css.textContent=`.dwrap{position:relative;display:flex;align-items:center;width:100%;min-width:0}
+.dwrap .dtx{width:100%;padding-right:32px!important;text-align:left;font-variant-numeric:tabular-nums;letter-spacing:.3px}
+.dwrap .dhid{position:absolute!important;right:0;bottom:0;width:1px!important;height:1px!important;min-width:0!important;opacity:0!important;pointer-events:none;border:0!important;padding:0!important;margin:0!important}
+.dwrap .dcal{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;padding:2px;cursor:pointer;font-size:14px;line-height:1;opacity:.75}.dwrap .dcal:hover{opacity:1}`;document.head.appendChild(css);
+ dEnhAll();new MutationObserver(ms=>{for(const m of ms)for(const n of m.addedNodes){if(n.nodeType!==1)continue;if(n.tagName==='INPUT'&&n.type==='date')dEnh(n);else if(n.querySelector&&n.querySelector('input[type=date]'))dEnhAll(n)}}).observe(document.documentElement,{childList:true,subtree:true})})();
+
+/* stored employee dates → dd/mm/yyyy (once per change; only rewrites what is not already dd/mm/yyyy) */
+function normEmpDates(){if(!DB||!DB.employees)return 0;let n=0;const fix=e=>{if(!e)return;let ch=false;for(const k in e){if(!/(^|_)date$/.test(k))continue;const v=e[k];if(v==null||v==='')continue;
+  const d=parseD(v);if(d&&dmy(d)!==v){e[k]=dmy(d);ch=true}}if(ch)n++};
+ Object.values(DB.employees).forEach(fix);Object.values(DB.archived_employees||{}).forEach(fix);return n}
+let _ndT=0;setInterval(()=>{if(!S.user||!DB||!isAdmin())return;if(Date.now()-_ndT<10*60000)return;_ndT=Date.now();const n=normEmpDates();if(n){log('Dates normalized',`${n} employee(s) → dd/mm/yyyy`,'employees');saveDB();if(/^#\/(dashboard|dash|employees)?/.test(getHash())&&!uiBusy())render()}},15000);
 
 /* ═══════════════════ ONLINE MULTI-USER ENGINE ═══════════════════
    All users work at the same time. Every change is detected per record,
@@ -2161,7 +2210,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1792909318';
+const BUILD_ID='1792914176';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
@@ -2173,13 +2222,23 @@ function ensureKeys(){ON_ARRS.forEach(c=>{(DB[c]||[]).forEach(r=>{if(r&&!r._k)r.
 function settingsForSync(){const o={};for(const k in DB.settings)if(!ON_LOCAL_SETTINGS.includes(k))o[k]=DB.settings[k];return o}
 function snapHashes(){ensureKeys();const h={};ON_ARRS.forEach(c=>{const m=h[c]={};(DB[c]||[]).forEach(r=>{m[r._k]=hstr(JSON.stringify(r))})});
  ON_MAPS.forEach(c=>{const m=h[c]={};const src=c==='settings'?settingsForSync():(DB[c]||{});for(const k in src)m[k]=hstr(JSON.stringify(src[k]))});
- const r=h._root={};ON_ROOT.forEach(k=>{if(DB[k]!==undefined)r[k]=hstr(JSON.stringify(DB[k]))});return h}
+ const r=h._root={};ON_ROOT.forEach(k=>{if(DB[k]!==undefined)r[k]=hstr(JSON.stringify(DB[k]))});
+ h._fh={};ON_MERGE.forEach(c=>{const f=h._fh[c]={};for(const k in (DB[c]||{}))f[k]=fieldHashes(DB[c][k])});return h}
 function diffOps(){ensureKeys();const sh=ONL.shadow;const ops=[];
  ON_ARRS.forEach(c=>{const m=sh[c]||(sh[c]={});const seen=new Set();(DB[c]||[]).forEach(r=>{seen.add(r._k);const j=JSON.stringify(r),hh=hstr(j);if(m[r._k]!==hh){const o={c,k:r._k,v:JSON.parse(j),h:hh};if(m[r._k]===undefined)o.n=1;ops.push(o)}});for(const k in m)if(!seen.has(k))ops.push({c,k,v:null})});
  ON_MAPS.forEach(c=>{const m=sh[c]||(sh[c]={});const src=c==='settings'?settingsForSync():(DB[c]||{});for(const k in src){const j=JSON.stringify(src[k]),hh=hstr(j);if(m[k]!==hh)ops.push({c,k,v:JSON.parse(j),h:hh})}for(const k in m)if(!(k in src))ops.push({c,k,v:null})});
  const m=sh._root||(sh._root={});ON_ROOT.forEach(k=>{if(DB[k]===undefined)return;const j=JSON.stringify(DB[k]),hh=hstr(j);if(m[k]!==hh)ops.push({c:'_root',k,v:JSON.parse(j),h:hh})});
  return ops}
-function shadowSet(o){const m=ONL.shadow[o.c]||(ONL.shadow[o.c]={});if(o.v===null)delete m[o.k];else m[o.k]=o.h||hstr(JSON.stringify(o.v))}
+const ON_MERGE=['employees','archived_employees'];   /* records merged field by field when two devices change the same employee */
+function fieldHashes(v){const o={};if(v&&typeof v==='object')for(const f in v)o[f]=hstr(JSON.stringify(v[f]));return o}
+function fhMap(c){const sh=ONL.shadow;const a=sh._fh||(sh._fh={});return a[c]||(a[c]={})}
+function shadowSet(o){const m=ONL.shadow[o.c]||(ONL.shadow[o.c]={});if(o.v===null)delete m[o.k];else m[o.k]=o.h||hstr(JSON.stringify(o.v));
+ if(ON_MERGE.includes(o.c)){const f=fhMap(o.c);if(o.v===null)delete f[o.k];else f[o.k]=fieldHashes(o.v)}}
+/* a remote change arrives for a record this device also changed (not yet sent): keep the other device's fields and re-apply only the fields changed here */
+function mergeRemote(o){if(!ON_MERGE.includes(o.c)||o.v===null||!DB[o.c])return false;const loc=DB[o.c][o.k];if(!loc)return false;
+ const sh=(ONL.shadow[o.c]||{})[o.k];if(!sh||hstr(JSON.stringify(loc))===sh)return false;const base=fhMap(o.c)[o.k];if(!base)return false;
+ const mg=JSON.parse(JSON.stringify(o.v));let mine=0;new Set([...Object.keys(loc),...Object.keys(base)]).forEach(f=>{const h=loc[f]===undefined?undefined:hstr(JSON.stringify(loc[f]));if(h!==base[f]){mine++;if(loc[f]===undefined)delete mg[f];else mg[f]=loc[f]}});
+ DB[o.c][o.k]=mg;shadowSet({c:o.c,k:o.k,v:o.v});return true}
 /* apply only what differs from what this tab already has (works for other users, other tabs, other devices) */
 function remoteIsNew(o){const m=(ONL.shadow&&ONL.shadow[o.c])||{};if(o.v===null)return o.k in m;return m[o.k]!==hstr(JSON.stringify(o.v))}
 function applyRemoteOp(o){
@@ -2192,22 +2251,25 @@ async function onCall(params,timeout){const c=onCfg();const ctl=typeof AbortCont
  try{const r=await fetch(c.url,{method:'POST',body:JSON.stringify(Object.assign({key:c.key,client:onClient(),user:S.user||'',page:getHash()},params)),signal:ctl&&ctl.signal});const j=await r.json();if(!j.ok)throw new Error(j.error||'server error');return j}
  catch(e){if(e.name==='AbortError')throw new Error(L('Server timeout','انتهت مهلة الخادم'));if(/fetch|network|load failed/i.test(e.message))throw new Error(L('No internet / server unreachable','لا يوجد إنترنت أو الخادم غير متاح'));throw e}finally{clearTimeout(t)}}
 let _shadowT=null;function persistShadow(){clearTimeout(_shadowT);_shadowT=setTimeout(async()=>{const t=JSON.stringify({ver:ONL.ver,client:onClient(),h:ONL.shadow});if(IDB.ok)await IDB.set('modo_hr_shadow',t);else try{ST.set('modo_hr_shadow',t)}catch(e){}},400)}
-async function loadShadow(){let t=null;if(IDB.ok)t=await IDB.get('modo_hr_shadow');if(!t)t=ST.get('modo_hr_shadow');try{const o=JSON.parse(t||'null');if(o&&o.h){ONL.shadow=o.h;ONL.ver=o.ver||0;return true}}catch(e){}return false}
+async function loadShadow(){let t=null;if(IDB.ok)t=await IDB.get('modo_hr_shadow');if(!t)t=ST.get('modo_hr_shadow');try{const o=JSON.parse(t||'null');if(o&&o.h){ONL.shadow=o.h;ONL.ver=o.ver||0;if(!o.h._fh){o.h._fh={};ON_MERGE.forEach(c=>{const f=o.h._fh[c]={};for(const k in (DB[c]||{}))f[k]=fieldHashes(DB[c][k])})}return true}}catch(e){}return false}
 function onStatus(st,err){ONL.status=st;ONL.err=err||'';const b=$('#onlb');if(b)b.outerHTML=onlineHTML()}
 async function fullLoad(){let r=await onCall({action:'load'},180000);if(r.retry){await new Promise(z=>setTimeout(z,3000));r=await onCall({action:'load'},180000);if(r.retry)throw new Error(L('Server is busy, try again in a minute','الخادم مشغول، حاول بعد دقيقة'))}const lang=DB.language;DB=normalizeDB(r.data||{});DB.language=lang;ensureKeys();ONL.ver=r.ver;ONL.shadow=snapHashes();await persist();persistShadow();setTimeout(()=>onCycle(),60);return r}
 async function uploadAll(){ensureKeys();const lang=DB.language;const data=JSON.parse(JSON.stringify(DB));delete data.language;delete data._stamp;if(data.settings){ON_LOCAL_SETTINGS.forEach(k=>delete data.settings[k])}
  data.mobile_punch_log=Object.fromEntries((data.mobile_punch_log||[]).map(r=>[r._k,r]));/* server keeps this log as a keyed map */
  const r=await onCall({action:'replace',data:JSON.stringify(data)},300000);ONL.ver=r.ver;ONL.shadow=snapHashes();persistShadow();return r}
 async function onCycle(){if(!onlineOn()||!DB)return;if(ONL.busy){ONL.again=true;return}ONL.busy=true;let changed=false;
- try{if(!ONL.shadow){if(!(await loadShadow())){await fullLoad();changed=true}}
-  const ops=diffOps();ONL.pendingN=ops.length;
+ const push=async()=>{const ops=diffOps();ONL.pendingN=ops.length;
   if(ops.length>4000){onStatus('sync');await uploadAll()}
   else if(ops.length){onStatus('sync');for(let i=0;i<ops.length;i+=1500){const chunk=ops.slice(i,i+1500);const r=await onCall({action:'commit',ops:chunk.map(o=>o.n?{c:o.c,k:o.k,v:o.v,n:1}:{c:o.c,k:o.k,v:o.v})},120000);chunk.forEach(shadowSet);
     (r.idmap||[]).forEach(m=>{const rec=(DB[m.c]||[]).find(x=>x._k===m.k);if(rec){rec[m.field]=m.to;shadowSet({c:m.c,k:m.k,v:rec});changed=true;notify(L(`Number ${m.from} was already used by another user — saved as ${m.to}`,`الرقم ${m.from} استخدمه مستخدم آخر — تم الحفظ برقم ${m.to}`),'info')}});
-    if(r.online)ONL.online=r.online}ONL.pendingN=0;persistShadow()}
+    if(r.online)ONL.online=r.online}ONL.pendingN=0;persistShadow()}};
+ try{if(!ONL.shadow){if(!(await loadShadow())){await fullLoad();changed=true}}
+  /* 1) bring in the other devices' changes FIRST, so an old copy here never overwrites a newer change made elsewhere */
   const p=await onCall({action:'poll',since:ONL.ver},60000);if(p.online)ONL.online=p.online;ONL.srv=p.server||'old';
-  if(p.reset){await fullLoad();changed=true}
-  else{(p.batches||[]).forEach(b=>{b.ops.forEach(o=>{if(remoteIsNew(o)){applyRemoteOp(o);changed=true}})});ONL.ver=p.ver;persistShadow()}
+  if(p.reset){await push();await fullLoad();changed=true}
+  else{(p.batches||[]).forEach(b=>{b.ops.forEach(o=>{if(remoteIsNew(o)){if(!mergeRemote(o))applyRemoteOp(o);changed=true}})});ONL.ver=p.ver;persistShadow();
+   /* 2) then send what changed here */
+   await push()}
   if(changed)await persist();ONL.lastOk=Date.now();onStatus('ok')}
  catch(e){onStatus('err',e.message);console.warn('online',e)}
  finally{ONL.busy=false;if(changed)onRemoteChanged();if(ONL.again){ONL.again=false;setTimeout(onCycle,50)}}}
