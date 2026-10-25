@@ -457,7 +457,7 @@ const _nz=x=>String(x).trim().replace(/^0+(?=\d)/,'');
 function rowMatch(v,ds,id,exact){if(exact)return id!=null&&_nz(id)===_nz(v);return ds.includes(v)}
 /* exact-code mode only when the number typed is an existing code; otherwise it still finds phone / national ID numbers */
 const exactMode=(v,ids)=>/^\d+$/.test(v)&&ids.some(i=>i!=null&&_nz(i)===_nz(v));
-function filterTbl(inp){const tid=inp.dataset.t;if(tid==='tatt'){S.srch[tid]=inp.value;clearTimeout(S.tmp._attQ);S.tmp._attQ=setTimeout(()=>{const p=inp.selectionStart;render();const n=document.querySelector('.search input[data-t="tatt"]');if(n){n.focus();try{n.setSelectionRange(p,p)}catch(e){}}},350);return}const v=inp.value.trim().toLowerCase();S.srch[tid]=inp.value;let n=0;const trs=$$('#'+tid+' tbody tr');const ex=exactMode(v,trs.map(t=>t.dataset.id));trs.forEach(tr=>{const ok=!v||rowMatch(v,tr.dataset.s||'',tr.dataset.id,ex);tr.style.display=ok?'':'none';if(ok)n++});const c=$('#cnt_'+tid);if(c)c.textContent=n}
+function filterTbl(inp){const tid=inp.dataset.t;if(tid==='tatt'){S.srch[tid]=inp.value;S.tmp.attPg=1;clearTimeout(S.tmp._attQ);S.tmp._attQ=setTimeout(()=>{const p=inp.selectionStart;render();const n=document.querySelector('.search input[data-t="tatt"]');if(n){n.focus();try{n.setSelectionRange(p,p)}catch(e){}}},350);return}const v=inp.value.trim().toLowerCase();S.srch[tid]=inp.value;let n=0;const trs=$$('#'+tid+' tbody tr');const ex=exactMode(v,trs.map(t=>t.dataset.id));trs.forEach(tr=>{const ok=!v||rowMatch(v,tr.dataset.s||'',tr.dataset.id,ex);tr.style.display=ok?'':'none';if(ok)n++});const c=$('#cnt_'+tid);if(c)c.textContent=n}
 function fld(label,inner,full,req){return `<div class="fld ${full?'full':''}"><label>${label}${req?' <span class="req">*</span>':''}</label>${inner}</div>`}
 function opts(list,val,blank){return (blank?`<option value="">${blank===true?'—':esc(blank)}</option>`:'')+list.map(o=>{const v=Array.isArray(o)?o[0]:o,l=Array.isArray(o)?o[1]:tv(o);return `<option value="${esc(v)}" ${String(val)===String(v)?'selected':''}>${esc(l)}</option>`}).join('')}
 const inp=(name,val,type,extra)=>`<input type="${type||'text'}" name="${name}" value="${esc(val??'')}" ${extra||''}>`;
@@ -890,19 +890,22 @@ ROUTES.attendance=(act,id)=>{if(act==='new'||act==='edit')return attForm(act==='
  const idx=DB.attendance.map((a,i)=>i).filter(i=>{const d=parseD(DB.attendance[i].date);return (!fr||(d&&d>=fr))&&(!to||(d&&d<=to))});
  idx.sort((x,y)=>{const a=DB.attendance[x],b=DB.attendance[y];return (parseD(b.date)||0)-(parseD(a.date)||0)||String(a.emp_id).localeCompare(String(b.emp_id),undefined,{numeric:true})});
  const aq=String(S.srch.tatt||'').trim().toLowerCase();if(aq){const toks=aq.split(/\s+/);const keep=idx.filter(i=>{const r=DB.attendance[i],e=getEmp(r.emp_id);const h=[r.emp_id,e&&e.name,e&&e.arabic_name,tv(empDept(e)),fmtD(r.date),r.status,attStatus(r),r.source].join(' ').toLowerCase();return toks.every(t=>h.includes(t))});idx.length=0;keep.forEach(i=>idx.push(i))}
- const shown=idx.slice(0,3000);let totMin=0;
- const rows=shown.map(i=>{const a=DB.attendance[i],e=getEmp(a.emp_id);const m=durMin(a.check_in,a.check_out);totMin+=m;const st=attStatus(a);
+ /* pages of 100 rows (printing / Excel still take every filtered row) */
+ const aPS=S.tmp.attAll?0:(S.tmp.attPS==null?100:num(S.tmp.attPS)),aPages=aPS?Math.max(1,Math.ceil(idx.length/aPS)):1;let aPg=Math.min(Math.max(1,num(S.tmp.attPg)||1),aPages);S.tmp.attPg=aPg;
+ const shown=aPS?idx.slice((aPg-1)*aPS,aPg*aPS):idx.slice(0,20000);let totMin=0;idx.forEach(i=>{const a=DB.attendance[i];totMin+=durMin(a.check_in,a.check_out)});
+ const aPager=aPS&&aPages>1?`<div class="pgr" style="border:1px solid var(--line);border-top:0;border-radius:0 0 var(--r) var(--r)"><span>${L('Showing','عرض')} ${(aPg-1)*aPS+1}–${Math.min(aPg*aPS,idx.length)} ${L('of','من')} ${idx.length}</span><span class="pgb"><button type="button" ${aPg<=1?'disabled':''} onclick="S.tmp.attPg=${aPg-1};render()">${S.lang==='ar'?'→':'←'} ${L('Prev','السابق')}</button><span style="padding:0 6px">${L('Page','صفحة')} ${aPg} / ${aPages}</span><button type="button" ${aPg>=aPages?'disabled':''} onclick="S.tmp.attPg=${aPg+1};render()">${L('Next','التالي')} ${S.lang==='ar'?'←':'→'}</button></span><label style="display:flex;gap:6px;align-items:center">${L('Rows','صفوف')} <select onchange="S.tmp.attPS=+this.value;S.tmp.attPg=1;render()">${[50,100,200,500].map(n=>`<option value="${n}" ${aPS===n?'selected':''}>${n}</option>`).join('')}</select></label></div>`:'';
+ const rows=shown.map(i=>{const a=DB.attendance[i],e=getEmp(a.emp_id);const m=durMin(a.check_in,a.check_out);const st=attStatus(a);
   return {c:[esc(a.emp_id),esc(e?e.name:'—'),esc(tv(empDept(e))),fmtD(a.date),t12(a.check_in)||'—',t12(a.check_out)||'—',durStr(m)||'—',shiftBadge(a,e),lateOnly(a,e),earlyOnly(a,e),badge(st,st==='Present'?'ok':st==='Day Off'?'warn':st==='Absent'?'bad':'info'),srcLabel(a.source),`<div class="acts">${btn('✏️',`go('attendance/edit/${i}')`,'sm b')}${isAdmin()?dbtn('🗑️',`delAtt(${i})`,'sm r'):''}</div>`]}});
  const [mo,yr]=curPeriod();
  return head('📅',L('Attendance','الحضور والانصراف'),L('Track employee attendance','متابعة حضور الموظفين'),'#0EA5E9',btn('➕ '+L('Record','تسجيل'),"go('attendance/new')",'g')+btn('🖐️ '+L('Sync Fingerprint','سحب البصمة'),'zkSyncAll()','v')+btn('📱 '+L('Sync Mobile Punches','سحب بصمات الموبايل'),"mpCfg().gsheet_url?mpSync(false).then(()=>render()):notify(L('Mobile punch is not linked yet — Settings → Mobile GPS Punch','لم يتم ربط البصمة عبر الموبايل بعد — الإعدادات ← البصمة عبر الموبايل'),'err')",'t')+btn('📥 '+L('Import Fingerprint File','استيراد ملف البصمة'),"go('attendance/import')",'ghost')+btn('📊 '+L('Employee Count Daily','العدد اليومي'),"go('attendance/count')",'y')+stdBtns(L('Attendance Report','تقرير الحضور'),'tatt'))
  +`<div class="wrap"><div id="zkRun">${typeof zkRunHTML==='function'?zkRunHTML():''}</div><div class="muted" style="font-size:12px;margin-bottom:8px">🔁 ${L('Auto','تلقائي')}: ${L('mobile every','الموبايل كل')} ${num(mpCfg().auto_sync_minutes)?num(mpCfg().auto_sync_minutes)+' '+L('min','د'):L('off','متوقف')} · ${L('device every','الجهاز كل')} ${num(DB.settings.zk_auto_pull_minutes??15)?num(DB.settings.zk_auto_pull_minutes??15)+' '+L('min','د'):L('off','متوقف')} · ${L('last','آخر سحب')}: ${esc(DB.settings.zk_last_sync||'—')}</div><div class="atb">
- <form id="frm" class="atb-s" onsubmit="return false"><div class="atb-h">🔍 ${L('Filter by date','تصفية بالتاريخ')}</div><div class="atb-r"><label class="atb-l"><span>${L('From','من')}</span>${dinp('from',fl.from)}</label><label class="atb-l"><span>${L('To','إلى')}</span>${dinp('to',fl.to)}</label>${btn('🔍 '+L('Apply','تطبيق'),"S.tmp.attF={from:fv(F(),'from'),to:fv(F(),'to')};render()",'p sm')}${btn(L('Clear','مسح'),'S.tmp.attF={};render()','d sm')}</div></form>
+ <form id="frm" class="atb-s" onsubmit="return false"><div class="atb-h">🔍 ${L('Filter by date','تصفية بالتاريخ')}</div><div class="atb-r"><label class="atb-l"><span>${L('From','من')}</span>${dinp('from',fl.from)}</label><label class="atb-l"><span>${L('To','إلى')}</span>${dinp('to',fl.to)}</label>${btn('🔍 '+L('Apply','تطبيق'),"S.tmp.attF={from:fv(F(),'from'),to:fv(F(),'to')};S.tmp.attPg=1;render()",'p sm')}${btn(L('Clear','مسح'),'S.tmp.attF={};S.tmp.attPg=1;render()','d sm')}</div></form>
  <form id="frm2" class="atb-s" onsubmit="return false"><div class="atb-h">☀️ ${L('Finalize a day','إقفال يوم')} <span class="atb-i" title="${esc(L('For the chosen completed day: every active employee with no attendance record and no approved leave gets a Day Off record and 1 day is deducted from the Day Off balance. Employees on approved leave get a record with the leave type. Already-processed days are skipped automatically.','لليوم المكتمل المختار: كل موظف بدون سجل حضور وبدون إجازة معتمدة يُسجَّل له يوم راحة ويُخصم يوم من رصيد الراحات، ومن عليه إجازة معتمدة يُسجَّل بنوع الإجازة. الأيام المعالجة سابقاً لا تتكرر.'))}">ⓘ</span></div><div class="atb-r"><label class="atb-l"><span>${L('From','من')}</span><input type="date" id="dofd" value="${iso(addDays(today(),-1))}"></label><label class="atb-l"><span>${L('To','إلى')}</span><input type="date" id="dofd2" value="${iso(addDays(today(),-1))}"></label>${dbtn('☀️ '+L('Finalize','إقفال'),"finalizeDay()",'y sm')}</div><small class="atb-n">${L('Automatic every day — this is only for re-closing old days','تلقائي كل يوم — الزر ده لإقفال أيام قديمة فقط')} · ${L('last','آخر إقفال')}: ${esc(DB.settings.last_dayoff_deduction||'—')}</small></form>
  <form id="frm3" class="atb-s" onsubmit="return false"><div class="atb-h">📊 ${L('Excel by department','Excel حسب القسم')}</div><div class="atb-r"><label class="atb-l"><span>${L('Month','الشهر')}</span><select id="xm">${MONTHS_EN.map((m,i)=>`<option value="${i+1}" ${i+1===mo?'selected':''}>${monthName(i+1)}</option>`).join('')}</select></label><label class="atb-l" style="max-width:90px"><span>${L('Year','السنة')}</span><input type="number" id="xy" value="${yr}"></label>${btn('📊 '+L('Export','تصدير'),"attDeptExcel(+$('#xm').value,+$('#xy').value)",'g sm')}</div><small class="atb-n">${L('In / Out / hours grid · payroll cycle 25 → 24','شبكة دخول / خروج / ساعات · دورة المرتبات 25 ← 24')}</small></form>
  </div>
  ${searchBox('tatt',L('Search by code, name, department, date, status...','ابحث بالكود أو الاسم أو القسم أو التاريخ أو الحالة...'))}
- <div class="muted" style="margin-bottom:6px">${L('Rows','السجلات')}: <b id="cnt_tatt">${shown.length}</b>${idx.length>shown.length?` (${L('showing latest','عرض أحدث')} 3000 ${L('of','من')} ${idx.length})`:''} — 🕒 ${L('Total work hours','إجمالي ساعات العمل')}: <b>${Math.floor(totMin/60)}h ${pad(totMin%60)}m</b></div>
- ${table([L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Date','التاريخ'),L('Check In','الدخول'),L('Check Out','الخروج'),L('Work Hours','ساعات العمل'),L('Shift','الوردية'),L('Late (h:mm)','تأخير (س:د)'),L('Left early (h:mm)','انصراف مبكر (س:د)'),L('Status','الحالة'),L('Source','المصدر'),L('Actions','إجراءات')],rows,{id:'tatt'})}</div>`};
+ <div class="muted" style="margin-bottom:6px">${L('Rows','السجلات')}: <b id="cnt_tatt">${idx.length}</b> — 🕒 ${L('Total work hours','إجمالي ساعات العمل')}: <b>${Math.floor(totMin/60)}h ${pad(totMin%60)}m</b></div>
+ ${table([L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Date','التاريخ'),L('Check In','الدخول'),L('Check Out','الخروج'),L('Work Hours','ساعات العمل'),L('Shift','الوردية'),L('Late (h:mm)','تأخير (س:د)'),L('Left early (h:mm)','انصراف مبكر (س:د)'),L('Status','الحالة'),L('Source','المصدر'),L('Actions','إجراءات')],rows,{id:'tatt'})}${aPager}</div>`};
 function finalizeDay(){let a=parseD($('#dofd').value),b=parseD(($('#dofd2')||{}).value)||a;if(!a){notify(L('Choose a date','اختر التاريخ'),'err');return}if(b<a){const t=a;a=b;b=t}const y=addDays(today(),-1);if(a>y){notify(L('Only completed days (before today) can be finalized','يمكن إقفال الأيام المكتملة فقط (قبل اليوم)'),'err');return}if(b>y)b=y;
  if((b-a)/864e5>62){notify(L('Maximum 2 months at a time','الحد الأقصى شهرين في المرة'),'err');return}
  let n=0,days=0;for(let d=new Date(a);d<=b;d=addDays(d,1)){n+=applyDayOff(d).length;days++}
@@ -2205,6 +2208,213 @@ function normEmpDates(){if(!DB||!DB.employees)return 0;let n=0;const fix=e=>{if(
   const d=parseD(v);if(d&&dmy(d)!==v){e[k]=dmy(d);ch=true}}if(ch)n++};
  Object.values(DB.employees).forEach(fix);Object.values(DB.archived_employees||{}).forEach(fix);return n}
 let _ndT=0;setInterval(()=>{if(!S.user||!DB||!isAdmin())return;if(Date.now()-_ndT<10*60000)return;_ndT=Date.now();const n=normEmpDates();if(n){log('Dates normalized',`${n} employee(s) → dd/mm/yyyy`,'employees');saveDB();if(/^#\/(dashboard|dash|employees)?/.test(getHash())&&!uiBusy())render()}},15000);
+/* ═══════════ Professional UI layer (design guide: sidebar · tables · palette · forms · printing) ═══════════
+   Visual / usability only — no data, calculation or permission logic is changed here. */
+
+/* ── 1) one icon style for the main sections (line icons instead of mixed emoji) ── */
+const UI_IC={
+ dashboard:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+ employees:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16.5 14.6c2.6.2 4.4 1.9 5 4.9"/>',
+ departments:'<rect x="4" y="3" width="10" height="18" rx="1"/><path d="M14 9h5a1 1 0 0 1 1 1v11H14"/><path d="M7.5 7h3M7.5 11h3M7.5 15h3M17 13h0M17 17h0"/>',
+ change_of_status:'<path d="M4 7h13l-3-3M20 17H7l3 3"/>',
+ contracts:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+ resignations:'<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 16l-4-4 4-4M6 12h10"/>',
+ attendance:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M9 15l2 2 4-4"/>',
+ leaves:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/>',
+ payroll:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14.5h2"/><path d="M6 6V5a2 2 0 0 1 2-2h8"/>',
+ salary_slip:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+ advances:'<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>',
+ cl_staff:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h0M15 11h1M8 15h2M12 15h0M15 15h1M8 18h2M12 18h0M15 18h1"/>',
+ penalties:'<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h0"/>',
+ reports:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+ employee_situations:'<circle cx="10" cy="8" r="3.5"/><path d="M3.5 20c.6-3.6 3.2-5.5 6.5-5.5 1.6 0 3 .4 4.1 1.2"/><path d="M15.5 18l2 2 4-4"/>',
+ evaluation:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11l1.5 1.5L14 9M9 16h6"/>',
+ contract_renewal:'<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/>',
+ settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'};
+const uiIcon=(k,sz)=>UI_IC[k]?`<svg class="uic" width="${sz||18}" height="${sz||18}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${UI_IC[k]}</svg>`:'';
+
+/* ── 2) sidebar grouped by the real HR workflow ── */
+const NAV_GROUPS=[
+ ['main','Overview','الرئيسية',['dashboard']],
+ ['staff','Staff Affairs','شؤون الموظفين',['employees','departments','contracts','contract_renewal','change_of_status','resignations','employee_situations','evaluation']],
+ ['time','Attendance & Leave','الحضور والإجازات',['attendance','leaves']],
+ ['pay','Payroll & Deductions','المرتبات والمستحقات',['payroll','salary_slip','advances','cl_staff','penalties']],
+ ['rep','Reports','التقارير',['reports']],
+ ['sys','System','النظام',['settings']]];
+(function(){const order=NAV_GROUPS.flatMap(g=>g[3]);const rest=NAV.filter(n=>!order.includes(n[0]));const sorted=order.map(k=>NAV.find(n=>n[0]===k)).filter(Boolean).concat(rest);NAV.splice(0,NAV.length,...sorted)})();
+const _shellOrig=shell;
+shell=function(content,cur){const navKey=ROUTE_KEY[cur]||cur;
+ let h=_shellOrig(content,cur);
+ const groups=NAV_GROUPS.map(g=>{const items=NAV.filter(n=>g[3].includes(n[0])&&allowed(n[0]));if(!items.length)return '';
+  return `<div class="ng"><div class="ngt">${L(g[1],g[2])}</div>${items.map(n=>`<a href="#/${n[5]}" onclick="go('${n[5]}');return false" class="${navKey===n[0]?'on':''}">${uiIcon(n[0])||n[1]} <span>${L(n[2],n[3])}</span></a>`).join('')}</div>`}).join('')
+  +NAV.filter(n=>!NAV_GROUPS.some(g=>g[3].includes(n[0]))&&allowed(n[0])).map(n=>`<a href="#/${n[5]}" onclick="go('${n[5]}');return false" class="${navKey===n[0]?'on':''}">${n[1]} <span>${L(n[2],n[3])}</span></a>`).join('');
+ h=h.replace(/<nav>[\s\S]*?<\/nav>/,`<nav>${groups}</nav>`);
+ /* main pages get the same line icon in their header */
+ const main=NAV.find(n=>n[5]===cur);if(main&&UI_IC[main[0]])h=h.replace(/<span class="pi">[\s\S]*?<\/span>/,`<span class="pi">${uiIcon(main[0],26)}</span>`);
+ return h};
+
+/* ── 3) palette + components ── */
+(function(){const css=document.createElement('style');css.id='ui-pro';css.textContent=`
+:root{--pri:#0F2744;--acc:#2563EB;--ok:#15803D;--bad:#DC2626;--warn:#B45309;--bg:#F4F6F9;--card:#fff;--txt:#0F172A;--mut:#64748B;--bd:#E2E8F0;--side:#0F2744;--r:10px;--line:#E2E8F0;--soft:#EEF3FA}
+body,html{background:var(--bg)}
+/* sidebar */
+.side{background:var(--side);color:#C8D3E3}
+.brand{border-bottom:1px solid rgba(255,255,255,.08)}
+.side nav{padding:6px 10px 10px}
+.side .ng{margin-top:10px}.side .ng:first-child{margin-top:4px}
+.side .ngt{font-size:10.5px;font-weight:700;letter-spacing:.6px;color:#7F93AE;padding:6px 10px 4px;text-transform:uppercase}
+.side nav a{gap:11px;padding:8px 10px;border-radius:8px;color:#C8D3E3;margin:1px 0;font-size:13.5px;border-inline-start:3px solid transparent}
+.side nav a .uic{flex-shrink:0;opacity:.85}
+.side nav a:hover{background:rgba(255,255,255,.06);color:#fff}
+.side nav a.on{background:rgba(37,99,235,.16);color:#fff;font-weight:700;border-inline-start-color:#3B82F6}
+.side nav a.on .uic{opacity:1;color:#93C5FD}
+.side-foot{border-top:1px solid rgba(255,255,255,.08)}
+.side-foot button{border-radius:7px!important;font-weight:600!important}
+/* page header: calm white bar */
+.phead{background:#fff!important;color:var(--pri);border-bottom:1px solid var(--line);padding:16px 22px}
+.phead .pi{background:var(--soft);color:var(--pri);border-radius:12px;width:50px;height:50px;font-size:26px}
+.phead h1{font-size:20px;color:var(--pri);font-weight:800}
+.phead p{color:var(--mut);opacity:1}
+.phead .btn.ghost,.btn.ghost{background:#fff;color:var(--pri);border:1px solid #CBD5E1}
+.phead .btn.ghost:hover,.btn.ghost:hover{background:#F8FAFC;filter:none}
+/* buttons: blue = main action, green = save/confirm, red = delete, white = secondary */
+.btn{border:1px solid transparent;border-radius:8px;font-weight:700;box-shadow:none}
+.btn:not(.p):not(.g):not(.r):not(.b):not(.d):not(.t):not(.ghost):not([style*="background"]){border-color:#CBD5E1}
+.btn:hover{filter:brightness(.96)}
+.btn.p,.btn.b{background:var(--acc);color:#fff}
+.btn.g,.btn.t{background:var(--ok);color:#fff}
+.btn.r{background:var(--bad);color:#fff}
+.btn.d{background:var(--pri);color:#fff}
+.btn.y,.btn.v{background:#fff;color:var(--pri);border-color:#CBD5E1}
+.btn.armed{animation:none!important;outline:2px solid #FCA5A5}
+.actions{background:#F8FAFC;border:1px solid var(--line);border-radius:var(--r)}
+/* cards / stats */
+.card{border-color:var(--line);box-shadow:none}
+.card h3{color:var(--pri)}
+.stat{transition:border-color .15s}
+.stat:hover{transform:none;box-shadow:none;border-color:#93C5FD}
+.stat .ic{background:var(--soft)!important;color:var(--pri)!important}
+.stat .v{color:var(--pri)}
+.bar i{background:var(--acc)!important}
+.net{background:var(--pri)}
+.tabs button.on{background:var(--pri);border-color:var(--pri)}
+input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+/* tables */
+.tbl th{background:var(--pri);font-weight:700;font-size:12.5px}
+.tbl th.srt{cursor:pointer;user-select:none}
+.tbl th.srt:after{content:'↕';opacity:.35;font-size:11px;margin-inline-start:5px}
+.tbl th.srt.asc:after{content:'▲';opacity:.9}.tbl th.srt.desc:after{content:'▼';opacity:.9}
+.tbl td{border-bottom:1px solid #EEF1F5}
+.tbl tbody tr:nth-child(even){background:#FAFBFC}
+.tbl tbody tr:hover{background:#F1F5FB}
+.tbl td.cn,.tbl th.cn{font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl td.ct{text-align:start}
+.tbl tr.pgh{display:none}
+.pgr{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 12px;border-top:1px solid var(--line);background:#fff;font-size:12.5px;color:var(--mut)}
+.pgr .pgb{display:flex;gap:4px;align-items:center}
+.pgr button{border:1px solid #CBD5E1;background:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;font-weight:700;color:var(--pri)}
+.pgr button:disabled{opacity:.4;cursor:default}
+.pgr select{width:auto;padding:3px 6px;font-size:12px}
+.badge{font-weight:700;border:1px solid transparent}
+.badge.Approved,.badge.Active,.badge.Present,.badge.ok{background:#ECFDF3;color:#166534;border-color:#BBF7D0}
+.badge.Pending,.badge.warn{background:#FFF8EB;color:#92400E;border-color:#FDE68A}
+.badge.Rejected,.badge.Expired,.badge.bad,.badge.Absent{background:#FEF2F2;color:#991B1B;border-color:#FECACA}
+.badge.info{background:#EFF6FF;color:#1E40AF;border-color:#BFDBFE}
+/* forms: live validation */
+.fld .inv,.fld input.inv,.fld select.inv,.fld textarea.inv{border-color:#DC2626!important;background:#FFFBFB}
+.fmsg{color:#B91C1C;font-size:11.5px;font-weight:700}
+/* login: same palette, no glow */
+.login .orb{display:none}
+.login .bg{background:linear-gradient(160deg,#0B1A30 0%,#0F2744 100%)!important}
+.lg-wrap{box-shadow:0 20px 50px rgba(0,0,0,.35)!important;border-color:rgba(255,255,255,.1)!important}
+.lg-chip:before{box-shadow:none!important}
+.lg-btn{background:#C9A24D!important;box-shadow:none!important}.lg-btn:hover{transform:none!important;background:#B8913F!important}.lg-btn:after{display:none!important}
+.login .lg-in input:focus{box-shadow:none!important}
+.lg-logo:has(img){box-shadow:0 0 0 2px #C9A24D!important}
+.lg-hero h1 em{background:none!important;-webkit-text-fill-color:#E9CF8E;color:#E9CF8E}
+/* phone */
+@media (max-width:900px){.side .ngt{display:none}.side .ng{display:contents}.side nav a{border-inline-start:0;border-bottom:2px solid transparent}.side nav a.on{border-bottom-color:#3B82F6}}
+/* printing: header on every page, no clipped columns */
+.pdoc table{table-layout:auto}
+.pdoc thead{display:table-header-group}
+.pdoc tr{page-break-inside:avoid;break-inside:avoid}
+.pdoc td,.pdoc th{word-break:break-word;overflow-wrap:anywhere}
+.pdoc .ph{border-bottom:2px solid #0F2744}
+.pdoc .ph .co{font-size:13px;font-weight:700;color:#0F2744;margin:2px 0}
+.pdoc .ph .meta{display:flex;justify-content:space-between;gap:10px;font-size:10.5px;color:#475569;margin-top:6px}
+.pdoc th{background:#0F2744!important;border-color:#0F2744!important}
+.pdoc.wide td,.pdoc.wide th{font-size:9px;padding:3px 2px}
+`;document.head.appendChild(css)})();
+
+/* ── 4) tables: sort by clicking a header, numbers/dates aligned, pages for long lists ── */
+const UI_NUM=/^[-+−]?\(?[\d٠-٩][\d٠-٩,.\s]*%?\)?$/,UI_DATE=/^\d{1,2}\/\d{1,2}\/\d{4}|^\d{4}-\d{2}-\d{2}|^\d{1,2}:\d{2}/;
+function uiCellVal(td,type){const t=(td.textContent||'').trim();if(type==='date'){const d=parseD(t);if(d)return d.getTime();const m=t.match(/^(\d{1,2}):(\d{2})/);return m?(+m[1])*60+(+m[2]):-1e15}
+ if(type==='num'){const v=parseFloat(t.replace(/[^\d.\-]/g,''));return isNaN(v)?-1e15:v}return t.toLowerCase()}
+function uiTblSkip(t){return !t||t.closest('.assh')||t.id==='tatt'||t.classList.contains('nopage')}
+function uiGrouped(t){return !!t.querySelector('tbody tr.dept,tbody tr.sub,tbody tr.grand,tbody td[colspan]:not(.empty)')}
+let _uiN=0;
+function uiEnhanceTable(t){if(t.dataset.ui)return;t.dataset.ui=1;const body=t.tBodies[0];if(!body||!t.tHead)return;
+ const rows=[...body.rows].filter(r=>!r.querySelector('td.empty'));const ths=[...t.tHead.rows[0].cells];if(!rows.length)return;
+ /* column types from the data */
+ const types=ths.map((th,i)=>{let n=0,num=0,date=0,long=0;for(const r of rows.slice(0,60)){const c=r.cells[i];if(!c||c.querySelector('button,input,select,img'))continue;const v=(c.textContent||'').replace(/\s+/g,' ').trim();if(!v||v==='—'||v==='-')continue;n++;
+   if(UI_DATE.test(v))date++;else if(UI_NUM.test(v))num++;else if(v.length>14)long++}
+  if(!n)return '';if(date/n>=.8)return 'date';if(num/n>=.8)return 'num';if(long/n>=.5)return 'text';return 'str'});
+ /* alignment through one small style rule per table (no per-cell work → fast on big tables) */
+ const uid='u'+(++_uiN);t.dataset.uid=uid;const rules=[];types.forEach((ty,i)=>{const sel=`table[data-uid="${uid}"] tr>*:nth-child(${i+1})`;if(ty==='date'||ty==='num')rules.push(`${sel}{font-variant-numeric:tabular-nums;white-space:nowrap}`);else if(ty==='text')rules.push(`table[data-uid="${uid}"] tbody td:nth-child(${i+1}){text-align:start}`)});
+ if(rules.length){const st=document.createElement('style');st.className='uist';st.textContent=rules.join('');t.insertAdjacentElement('beforebegin',st)}
+ if(uiTblSkip(t)||uiGrouped(t))return;
+ /* sorting */
+ ths.forEach((th,i)=>{const h=(th.textContent||'').trim();if(!types[i]||!h||/^(actions|إجراءات|open|فتح)$/i.test(h)||th.colSpan>1)return;th.classList.add('srt');th.title=L('Click to sort','اضغط للترتيب');
+  th.addEventListener('click',()=>{const dir=th.classList.contains('asc')?'desc':'asc';ths.forEach(x=>x.classList.remove('asc','desc'));th.classList.add(dir);const ty=types[i]==='text'?'str':types[i];
+   const rs=[...body.rows].filter(r=>!r.querySelector('td.empty'));rs.map(r=>[uiCellVal(r.cells[i]||r,ty),r]).sort((a,b)=>{const x=a[0],y=b[0];const c=typeof x==='number'?x-y:String(x).localeCompare(String(y),S.lang==='ar'?'ar':'en',{numeric:true});return dir==='asc'?c:-c}).forEach(p=>body.appendChild(p[1]));
+   if(t._pg){t._pg.page=1;uiPage(t)}})});
+ /* pages */
+ if(rows.length>60){t._pg={page:1,size:50};const wrap=t.closest('.tbl-wrap')||t;const bar=document.createElement('div');bar.className='pgr';wrap.insertAdjacentElement('afterend',bar);t._pg.bar=bar;uiPage(t)}}
+function uiPage(t){const P=t._pg;if(!P)return;const rs=[...t.tBodies[0].rows].filter(r=>!r.querySelector('td.empty'));const vis=rs.filter(r=>r.style.display!=='none');
+ const pages=P.size?Math.max(1,Math.ceil(vis.length/P.size)):1;if(P.page>pages)P.page=pages;const a=P.size?(P.page-1)*P.size:0,b=P.size?a+P.size:vis.length;
+ rs.forEach(r=>r.classList.remove('pgh'));vis.forEach((r,i)=>{if(i<a||i>=b)r.classList.add('pgh')});
+ const tid=t.id;P.bar.innerHTML=`<span>${L('Showing','عرض')} ${vis.length?a+1:0}–${Math.min(b,vis.length)} ${L('of','من')} ${vis.length}</span>
+  <span class="pgb"><button type="button" ${P.page<=1?'disabled':''} onclick="uiGo('${tid}',-1)">${S.lang==='ar'?'→':'←'} ${L('Prev','السابق')}</button><span style="padding:0 6px">${L('Page','صفحة')} ${P.page} / ${pages}</span><button type="button" ${P.page>=pages?'disabled':''} onclick="uiGo('${tid}',1)">${L('Next','التالي')} ${S.lang==='ar'?'←':'→'}</button></span>
+  <label style="display:flex;gap:6px;align-items:center">${L('Rows','صفوف')} <select onchange="uiSize('${tid}',this.value)">${[25,50,100,0].map(n=>`<option value="${n}" ${P.size===n?'selected':''}>${n||L('All','الكل')}</option>`).join('')}</select></label>`}
+function uiGo(tid,d){const t=document.getElementById(tid);if(!t||!t._pg)return;t._pg.page+=d;uiPage(t);const w=t.closest('.tbl-wrap');if(w)w.scrollTop=0}
+function uiSize(tid,v){const t=document.getElementById(tid);if(!t||!t._pg)return;t._pg.size=+v;t._pg.page=1;uiPage(t)}
+const _ftOrig=filterTbl;filterTbl=function(inp){_ftOrig(inp);const t=document.getElementById(inp.dataset.t);if(t&&t._pg){t._pg.page=1;uiPage(t)}};
+/* attendance shows 100 rows per page; print / Excel build every filtered row off-screen (fast, page untouched) */
+function uiAttAll(){S.tmp.attAll=true;let html='';try{html=ROUTES.attendance()}finally{S.tmp.attAll=false}const d=document.createElement('div');d.innerHTML=html;const t=d.querySelector('#tatt');if(!t)return {cols:[],rows:[]};
+ const tx=c=>(c.textContent||'').replace(/\s+/g,' ').trim();const ths=[...t.tHead.rows[0].cells].map(tx);const keep=ths.map(h=>h&&!/^(actions|إجراءات|open|فتح)$/i.test(h));
+ const rows=[...t.tBodies[0].rows].filter(r=>!r.querySelector('td.empty')).map(r=>{const o=[...r.cells].map(tx).filter((_,i)=>keep[i]);o.cls=r.className;return o});return {cols:ths.filter((_,i)=>keep[i]),rows}}
+const _visOrig=visTable;visTable=function(tid){const v=tid==='tatt'?uiAttAll():_visOrig(tid);v.rows.forEach(r=>{if(r.cls)r.cls=String(r.cls).replace(/\bpgh\b/,'').trim()});return v};
+function uiEnhanceAll(){document.querySelectorAll('#app table.tbl').forEach(uiEnhanceTable)}
+
+/* ── 5) forms: instant check of required fields + clear Cancel ── */
+function uiReqOf(el){const f=el.closest('.fld');if(!f)return false;return !!(el.required||(f.querySelector('label .req')))}
+function uiFieldVal(el){if(el.classList.contains('dtx')){const h=el.parentNode&&el.parentNode.querySelector('input[type=date]');return h?h.value:el.value}return el.value}
+function uiCheck(el,show){if(!el||el.type==='hidden'||el.type==='checkbox'||el.disabled||el.readOnly||!uiReqOf(el))return true;const v=String(uiFieldVal(el)||'').trim();const ok=v!==''&&!(el.type==='number'&&Number(v)===0&&/salary|amount/i.test(el.name||''));
+ const f=el.closest('.fld');el.classList.toggle('inv',!ok&&show);let m=f.querySelector('.fmsg');if(!ok&&show){if(!m){m=document.createElement('div');m.className='fmsg';f.appendChild(m)}m.textContent=L('This field is required','الحقل ده مطلوب')}else if(m)m.remove();return ok}
+document.addEventListener('focusout',e=>{const el=e.target;if(el&&el.matches&&el.matches('#app .fld input,#app .fld select,#app .fld textarea')&&!el.classList.contains('dhid'))setTimeout(()=>uiCheck(el,true),0)});
+document.addEventListener('input',e=>{const el=e.target;if(el&&el.classList&&el.classList.contains('inv'))uiCheck(el,true)});
+document.addEventListener('change',e=>{const el=e.target;if(el&&el.matches&&el.matches('#app .fld select')&&el.classList.contains('inv'))uiCheck(el,true)});
+const _notifyOrig=notify;notify=function(msg,type){_notifyOrig(msg,type);
+ if(type==='err'&&/^(Required|حقول مطلوبة)/.test(String(msg))){let first=null;document.querySelectorAll('#app .fld input:not(.dhid),#app .fld select,#app .fld textarea').forEach(el=>{if(!uiCheck(el,true)&&!first)first=el});
+  if(first){const sec=first.closest('.etab');if(sec&&getComputedStyle(sec).display==='none'){const k=sec.dataset.sec;const tb=document.querySelector(`[onclick*="'${k}'"]`);if(tb)tb.click()}setTimeout(()=>{first.scrollIntoView({block:'center',behavior:'smooth'});try{first.focus({preventScroll:true})}catch(x){}},250)}}};
+function uiCancelBtn(){const parts=getHash().replace(/^#\/?/,'').split('/');const p0=parts[0],p1=parts[1];if(!/^(new|edit)$/.test(p1||''))return;
+ document.querySelectorAll('#app .actions').forEach(a=>{if(a.dataset.cx)return;a.dataset.cx=1;const has=[...a.querySelectorAll('button,a')].some(b=>/cancel|back|إلغاء|رجوع|الغاء/i.test(b.textContent));if(has)return;
+  a.insertAdjacentHTML('beforeend',btn('✖ '+L('Cancel','إلغاء'),`go('${p0}')`,''))})}
+
+/* run after every screen */
+const _renderOrig=render;render=function(){_renderOrig.apply(this,arguments);try{uiEnhanceAll();uiCancelBtn()}catch(e){console.warn('ui',e)}};
+new MutationObserver(()=>{clearTimeout(window._uiT);window._uiT=setTimeout(()=>{try{uiEnhanceAll()}catch(e){}},40)}).observe(document.getElementById('app'),{childList:true,subtree:true});
+
+/* ── 6) printing: company, title, period and print date on top; wide tables switch to landscape ── */
+function uiPageSize(landscape){let s=document.getElementById('pgsz');if(!s){s=document.createElement('style');s.id='pgsz';document.head.appendChild(s)}s.textContent=landscape?'@page{size:A4 landscape;margin:10mm}':'@page{size:auto;margin:12mm}'}
+printDoc=function(title,body,sub){const pa=$('#print-area');pa.setAttribute('dir',S.lang==='ar'?'rtl':'ltr');
+ const m=String(body).match(/<thead>[\s\S]*?<\/thead>/);const cols=m?(m[0].match(/<th/g)||[]).length:0;const wide=cols>9;uiPageSize(wide);
+ const co=S.lang==='ar'?(DB.settings.company_ar||DB.settings.company):(DB.settings.company||DB.settings.company_ar);
+ pa.innerHTML=`<div class="pdoc${cols>14?' wide':''}"><div class="ph">${logoTag()}<div class="co">${esc(co||'')}</div><h1>${esc(title)}</h1>
+  <div class="meta"><span>${sub?L('Period / filter: ','الفترة / التصفية: ')+esc(sub):''}</span><span>${L('Print date','تاريخ الطباعة')}: ${nowDisp()}</span></div></div>${body}
+  <div class="foot">MODO HR — ${L('Printed by','طُبع بواسطة')} ${esc(S.user||'')} — ${nowDisp()}</div></div>`;
+ setTimeout(()=>window.print(),60)};
+window.addEventListener('afterprint',()=>uiPageSize(false));
 
 /* ═══════════════════ ONLINE MULTI-USER ENGINE ═══════════════════
    All users work at the same time. Every change is detected per record,
@@ -2215,7 +2425,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1792924485';
+const BUILD_ID='1792928542';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
