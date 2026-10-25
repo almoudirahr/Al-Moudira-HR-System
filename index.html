@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#1E3A5F">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<title>MODO HR — ERP</title>
+<title>Al-Moudira HR System</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -183,6 +183,15 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .muted{color:var(--mut)}.right{text-align:end}.center{text-align:center}.mt{margin-top:12px}.nowrap{white-space:nowrap}
 .pill{display:inline-block;background:#EEF2FF;color:#3730A3;border-radius:7px;padding:2px 8px;font-size:12px;font-weight:700;margin:2px}
 .list-links a{display:block;padding:8px 10px;border-bottom:1px solid #F1F5F9}
+.lg-hero2{justify-content:center;align-items:center;text-align:center}
+.lg-center{display:flex;flex-direction:column;align-items:center;gap:20px;margin:auto 0}
+.lg-logo.lg-big:has(img){width:180px;height:180px;padding:5px;box-shadow:0 0 0 3px #C9A24D,0 18px 50px rgba(0,0,0,.45)}
+.lg-name{font-size:40px;font-weight:800;color:#F5EBD3;letter-spacing:1.5px;line-height:1.1}
+.lg-name span{display:block;font-size:14px;letter-spacing:7px;color:#C9A24D;font-weight:700;text-transform:uppercase;margin-top:10px}
+.lg-rule{width:80px;height:2px;background:linear-gradient(90deg,transparent,#C9A24D,transparent)}
+.lg-hotel{color:#9A93A8;font-size:13px;letter-spacing:2px}
+.lg-hero2 .lg-clock{justify-content:center}
+@media (max-width:900px){.lg-logo.lg-big:has(img){width:96px;height:96px}.lg-name{font-size:26px}.lg-name span{font-size:11px;letter-spacing:5px;margin-top:6px}.lg-center{gap:12px}.lg-hotel{font-size:11.5px}}
 #print-area{display:none}
 @media (max-width:900px){
  .layout{flex-direction:column}
@@ -232,15 +241,15 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 </style>
 </head>
 <body>
-<div id="app"><div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#05070D;color:#C9A24D;font:700 18px Cairo,Arial">MODO HR …</div></div>
+<div id="app"><div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#05070D;color:#C9A24D;font:700 18px Cairo,Arial">Al-Moudira HR System …</div></div>
 <div id="print-area"></div>
 <script>
-window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&!a.dataset.ok){a.innerHTML='<div style="padding:30px;font:15px Arial;color:#991B1B;background:#FEE2E2;direction:ltr">MODO HR could not start: '+(e.message||e)+' (line '+(e.lineno||'?')+')<br>Please send this message to support.</div>'}});
+window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&!a.dataset.ok){a.innerHTML='<div style="padding:30px;font:15px Arial;color:#991B1B;background:#FEE2E2;direction:ltr">Al-Moudira HR System could not start: '+(e.message||e)+' (line '+(e.lineno||'?')+')<br>Please send this message to support.</div>'}});
 </script>
 <script>
 'use strict';
 /* ═══════════════════ MODO HR — Web ERP (converted from HR_System_v65.py) ═══════════════════ */
-const APP='MODO HR', VER='Web 2.0', STORE='modo_hr_web_v1', SESS='modo_hr_session';
+const APP='Al-Moudira HR System', VER='Web 2.0', STORE='modo_hr_web_v1', SESS='modo_hr_session';
 const S={lang:'ar',user:null,role:null,flash:null,srch:{},tmp:{}};
 let DB=null;
 
@@ -482,7 +491,7 @@ const DEFAULT_LOGO='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPAAAADwCAMAAA
 function appLogo(){return (DB&&DB.settings&&DB.settings.logo)||DEFAULT_LOGO}
 function logoTag(){return `<img src="${appLogo()}" style="max-height:90px;max-width:120px">`}
 function printDoc(title,body,sub){const pa=$('#print-area');pa.setAttribute('dir',S.lang==='ar'?'rtl':'ltr');
- pa.innerHTML=`<div class="pdoc"><div class="ph">${logoTag()}<h1>${esc(title)}</h1><p>${esc(S.lang==='ar'?DB.settings.company_ar:DB.settings.company)} — MODO HR${sub?' — '+esc(sub):''}</p></div>${body}<div class="foot">${L('Printed on','طُبع في')} ${nowDisp()} — ${esc(S.user||'')}</div></div>`;
+ pa.innerHTML=`<div class="pdoc"><div class="ph">${logoTag()}<h1>${esc(title)}</h1><p>${esc(S.lang==='ar'?DB.settings.company_ar:DB.settings.company)} — Al-Moudira HR System${sub?' — '+esc(sub):''}</p></div>${body}<div class="foot">${L('Printed on','طُبع في')} ${nowDisp()} — ${esc(S.user||'')}</div></div>`;
  setTimeout(()=>window.print(),60)}
 function printRaw(html,dir){const pa=$('#print-area');pa.setAttribute('dir',dir||'rtl');pa.innerHTML=`<div class="pdoc">${html}</div>`;setTimeout(()=>window.print(),60)}
 function printTable(title,cols,rows,sub){printDoc(title,`<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr class="${r.cls||''}">${(r.c||r).map((c,i)=>`<td ${r.span&&i===0?`colspan="${r.span}"`:''}>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table><p>${L('Records','عدد السجلات')}: ${rows.filter(r=>!r.cls).length}</p>`,sub)}
@@ -571,7 +580,7 @@ function applyDayOff(d,only){d=parseD(d);if(!d)return [];const ds=dmy(d);const o
 
 /* ═══════════════════ Shell, router, login ═══════════════════ */
 function shell(content,cur){const navKey=ROUTE_KEY[cur]||cur;
- return `<div class="layout"><aside class="side"><div class="brand"><div class="logo"><img src="${appLogo()}" alt=""></div><div><b>MODO HR</b><small>${VER}</small></div></div>
+ return `<div class="layout"><aside class="side"><div class="brand"><div class="logo"><img src="${appLogo()}" alt=""></div><div><b>Al-Moudira</b><small>HR System · ${VER}</small></div></div>
  <nav>${NAV.filter(n=>allowed(n[0])).map(n=>`<a href="#/${n[5]}" onclick="go('${n[5]}');return false" class="${navKey===n[0]?'on':''}">${n[1]} <span>${L(n[2],n[3])}</span></a>`).join('')}</nav>
  <div class="side-foot"><div class="u">👤 ${esc(S.user)} <span class="muted">· ${esc(L(...(ROLES[S.role]||['',''])))}</span></div><div class="row">
  <button style="background:#334155;color:#fff" onclick="toggleLang()">🌐 ${S.lang==='ar'?'English':'العربية'}</button>
@@ -582,9 +591,7 @@ function applyDir(){document.documentElement.lang=S.lang;document.documentElemen
 function loginPage(){let rem={};try{rem=JSON.parse(ST.get('modo_hr_remember')||'{}')||{}}catch(e){}
  const co=S.lang==='ar'?DB.settings.company_ar:DB.settings.company;S.tmp.after=()=>{lgClock();const u=$('#lu');(u&&u.value?$('#lp'):u).focus()};
  return `<div class="login"><div class="bg"></div><div class="grid-lines"></div><span class="orb o1"></span><span class="orb o2"></span><span class="orb o3"></span>
- <div class="lg-wrap"><section class="lg-hero"><div class="lg-mark"><div class="lg-logo"><img src="${appLogo()}" alt=""></div><div class="lg-brand"><b>MODO HR</b><small>Enterprise · ERP</small></div></div>
- <div><h1>${L('Your workforce,','إدارة فريقك')}<br><em>${L('beautifully managed.','بأناقة واحترافية.')}</em></h1><p class="lead">${L('Employees, attendance, leaves, payroll and contracts — one secure platform on every phone, tablet and computer.','الموظفون والحضور والإجازات والمرتبات والعقود — منصة واحدة آمنة على كل هاتف وتابلت وكمبيوتر.')}</p></div>
- <div class="lg-feats"><div class="lg-feat"><i>👥</i>${L('Employees & contracts','الموظفون والعقود')}</div><div class="lg-feat"><i>📅</i>${L('Attendance & leaves','الحضور والإجازات')}</div><div class="lg-feat"><i>💰</i>${L('Egyptian payroll','مرتبات وفق القانون المصري')}</div><div class="lg-feat"><i>☁️</i>${L('Cloud sync','مزامنة سحابية')}</div></div>
+ <div class="lg-wrap"><section class="lg-hero lg-hero2"><div class="lg-center"><div class="lg-logo lg-big"><img src="${appLogo()}" alt="Hotel Al Moudira"></div><div class="lg-name" dir="ltr">Al-Moudira<span>HR System</span></div><div class="lg-rule"></div><div class="lg-hotel">${L('Hotel Al Moudira · Luxor','فندق المديرة · الأقصر')}</div></div>
  <div class="lg-clock"><b id="lgT">--:--</b><span id="lgD"></span></div></section>
  <form class="lg-form" onsubmit="doLogin(event);return false" autocomplete="on"><div class="lg-top"><span class="lg-chip">${L('Secure connection','اتصال آمن')}</span><button type="button" class="lg-lang" onclick="toggleLang()">🌐 ${S.lang==='ar'?'English':'العربية'}</button></div>
  <h2>${L('Welcome back','مرحباً بعودتك')}</h2><p class="sub">${esc(co||L('Sign in to your account','سجّل الدخول إلى حسابك'))}</p>
@@ -597,7 +604,7 @@ function loginPage(){let rem={};try{rem=JSON.parse(ST.get('modo_hr_remember')||'
  <details id="lgDet" style="margin-top:14px;color:#9A93A8;font-size:12.5px" ${onlineOn()?'':'open'}><summary id="lgSum" style="cursor:pointer;text-align:center;${onlineOn()?'':'color:#FCA5A5;font-weight:700'}">${onlineOn()?'🟢 '+L('This device is linked to the online server','هذا الجهاز مربوط بالخادم الأون لاين'):'⚠ '+L('This device is NOT linked to the online server','هذا الجهاز غير مربوط بالخادم الأون لاين')}</summary>
  <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px"><div class="lg-in"><input id="lgSU" dir="ltr" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(onCfg().url)}" style="padding:0 14px;height:44px"></div><div class="lg-in"><input id="lgSK" dir="ltr" placeholder="${esc(L('Key','المفتاح'))}" value="${esc(onCfg().key)}" style="padding:0 14px;height:44px"></div>
  <button type="button" class="lg-lang" style="align-self:center" onclick="lgConnect()">🔗 ${L('Connect','اتصال')}</button><div id="lgSR" style="text-align:center"></div></div></details></form></div>
- <div class="lg-foot">© ${new Date().getFullYear()} MODO HR · ${VER}</div></div>`}
+ <div class="lg-foot">© ${new Date().getFullYear()} Al-Moudira HR System · ${VER}</div></div>`}
 async function lgConnect(){const u=$('#lgSU').value.trim(),k=$('#lgSK').value.trim(),r=$('#lgSR');if(!u||!k){r.textContent=L('Enter the URL and key','أدخل الرابط والمفتاح');return}
  onSaveCfg({url:u,key:k});r.textContent='⏳';try{const info=await onCall({action:'info'},60000);if(!info.ver){r.innerHTML='⚠ '+L('Server is empty — sign in as admin and upload the data from Settings → Online.','الخادم فارغ — ادخل كمسؤول وارفع البيانات من الإعدادات ← أون لاين.');return}
  await fullLoad();r.innerHTML='✅ '+L('Connected — you can sign in now','تم الاتصال — يمكنك تسجيل الدخول الآن');onlineStart();const sm=$('#lgSum');if(sm){sm.style.color='';sm.style.fontWeight='';sm.textContent='🟢 '+L('This device is linked to the online server','هذا الجهاز مربوط بالخادم الأون لاين')}setTimeout(()=>{const d=$('#lgDet');if(d)d.open=false;const lu=$('#lu');if(lu)lu.focus()},1500)}catch(e){r.innerHTML='❌ '+esc(e.message)}}
@@ -1237,7 +1244,7 @@ ROUTES.settings=(tab,x)=>{tab=tab||'general';const tabs=[['general','⚙️',L('
  if(tab==='sync'){tab='general';x='online'}if(!tabs.some(t=>t[0]===tab))tab='general';
  if(tab==='general'&&x==='online')setTimeout(()=>{const e=document.getElementById('onlineSec');if(e)e.scrollIntoView({block:'start'})},60);
  const body={general:()=>setGeneral()+(isAdmin()?`<div id="onlineSec" style="scroll-margin-top:12px">${setSync()}</div>`:'')+(isSuper()?'':setPassword().replace('id="frm"','id="pwf"')),password:setPassword,users:()=>x?userForm(x==='new'?null:x):setUsers(),sync:setSync,data:setData,log:()=>{setTimeout(()=>go('reports/activity'));return ''}}[tab]();
- return head('⚙️',L('Settings','الإعدادات'),'MODO HR '+VER,'#334155')+`<div class="wrap"><div class="tabs">${tabs.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="go('settings/${t[0]}')">${t[1]} ${t[2]}</button>`).join('')}</div>${body}</div>`};
+ return head('⚙️',L('Settings','الإعدادات'),APP+' '+VER,'#334155')+`<div class="wrap"><div class="tabs">${tabs.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="go('settings/${t[0]}')">${t[1]} ${t[2]}</button>`).join('')}</div>${body}</div>`};
 function setGeneral(){const s=DB.settings,i=DB.insurance_settings;return `<form id="frm" onsubmit="return false"><div class="card"><h3>🌐 ${L('Language / اللغة','اللغة / Language')}</h3><div class="tabs"><button type="button" class="${S.lang==='ar'?'on':''}" onclick="S.lang='en';toggleLang()">العربية</button><button type="button" class="${S.lang==='en'?'on':''}" onclick="S.lang='ar';toggleLang()">English</button></div></div>
  <div class="card"><h3>🏨 ${L('Company','الشركة')}</h3>${isAdmin()?`<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><div class="photo" style="width:120px;height:90px" id="lg"><img src="${appLogo()}" style="object-fit:contain;background:#fff"></div><label class="btn b sm" style="cursor:pointer">📷 ${L('Upload logo','رفع الشعار')}<input type="file" accept="image/*" hidden onchange="logoUp(this)"></label>${s.logo?btn('↩️ '+L('Default logo','الشعار الافتراضي'),"DB.settings.logo='';saveDB();render()",'d sm'):''}</div>
  <div class="grid">${fld(L('Company name (English)','اسم الشركة (إنجليزي)'),inp('company',s.company))}${fld(L('Company name (Arabic)','اسم الشركة (عربي)'),inp('company_ar',s.company_ar))}${fld(L('Authorised signatory','المفوض بالتوقيع'),inp('signatory',s.signatory))}${fld(L('Insurance min base','الحد الأدنى للأجر التأميني'),inp('imin',i.min,'number'))}${fld(L('Insurance max base','الحد الأقصى للأجر التأميني'),inp('imax',i.max,'number'))}</div>
@@ -1676,7 +1683,7 @@ function slipPrintHTML(e,r,m,y){const [ps,pe]=periodBounds(m,y);const co=DB.sett
  <div class="nt"><div><b>صافي المرتب</b><span>NET SALARY</span></div><div class="nv">${money(r.net)} <small>ج.م</small></div></div>
  <div class="tf">${tafqeet(r.net)}</div>
  <div class="sg">${[['توقيع الموظف','Employee'],['المحاسب','Accountant'],['مدير الموارد البشرية','HR Manager']].map(s=>`<div><b>${s[0]}</b><small>${s[1]}</small><i></i></div>`).join('')}</div>
- <div class="ft">${L('Printed','طُبع')}: ${nowDisp()} — ${esc(S.user||'')} · MODO HR</div></div>`}
+ <div class="ft">${L('Printed','طُبع')}: ${nowDisp()} — ${esc(S.user||'')} · Al-Moudira HR System</div></div>`}
 const SLIP_CSS=`<style>
 .slp{font-family:'Cairo',Tahoma,Arial,sans-serif;color:#0B1222;direction:rtl;font-size:13.5px;line-height:1.5;max-width:190mm;margin:0 auto;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .slp small{display:block;font-size:10.5px;color:#475569;font-weight:600;direction:ltr;line-height:1.2}
@@ -2215,7 +2222,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1792924485';
+const BUILD_ID='1792931242';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
@@ -2344,7 +2351,7 @@ async function boot(){await loadDB();try{const mv=migrateResigned();if(mv){persi
  autoArchive();render();
  onlineStart();onHashConnect();
  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();S.tmp.installEvt=e});
- try{const man={name:'MODO HR ERP',short_name:'MODO HR',start_url:location.href.split('#')[0],display:'standalone',background_color:'#0F172A',theme_color:'#1E3A5F',dir:'rtl',lang:'ar',icons:[{src:LOGO_ICON,sizes:'192x192',type:'image/png',purpose:'any'}]};
+ try{const man={name:'Al-Moudira HR System',short_name:'Al-Moudira HR',start_url:location.href.split('#')[0],display:'standalone',background_color:'#0F172A',theme_color:'#1E3A5F',dir:'rtl',lang:'ar',icons:[{src:LOGO_ICON,sizes:'192x192',type:'image/png',purpose:'any'}]};
   const l=document.createElement('link');l.rel='manifest';l.href='data:application/manifest+json,'+encodeURIComponent(JSON.stringify(man));document.head.appendChild(l);
   const ic=document.createElement('link');ic.rel='icon';ic.href=man.icons[0].src;document.head.appendChild(ic)}catch(e){}}
 boot();
