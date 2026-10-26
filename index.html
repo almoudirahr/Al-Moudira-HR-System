@@ -59,7 +59,7 @@ button,input,select,textarea{font-family:inherit;font-size:14px}
 .fld{display:flex;flex-direction:column;gap:4px}.fld.full{grid-column:1/-1}
 .fld label{font-weight:700;color:#334155;font-size:12.5px}
 .fld label .req{color:var(--bad)}
-input[type=text],input[type=number],input[type=date],input[type=time],input[type=password],input[type=email],input[type=tel],select,textarea{width:100%;padding:9px 11px;border:1px solid #CBD5E1;border-radius:9px;background:#fff;color:var(--txt);outline:none}
+input:not([type]),input[type=search],input[type=text],input[type=number],input[type=date],input[type=time],input[type=password],input[type=email],input[type=tel],select,textarea{width:100%;padding:9px 11px;border:1px solid #CBD5E1;border-radius:9px;background:#fff;color:var(--txt);outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
 input[readonly]{background:#F8FAFC;color:#475569}
 textarea{min-height:72px;resize:vertical}
@@ -256,8 +256,8 @@ let DB=null;
 /* ── Constants ─────────────────────────────────────────────── */
 const DEPARTMENT_ORDER=["Front Office","Housekeeping","Financial","Service","Kitchen","Maintenance","Laundry","Steward","Security","Human Resources","Spa","Recreation","Reservation and Marketing","Concierge and Trips","Farm Workers","Upholstery workshop","Carpentrey Workshop","Maintinance Farm","GM Farm","Gardener Farm"];
 const ANNUAL_LEAVE_DAYS_PER_DAYOFF=7;
-const LEAVE_TYPES=['Annual','Sick Leave','Insurance Sick Leave','Emergency','Unpaid','Day Off','Maternity','Bereavement'];
-const LEAVE_DISPLAY={Annual:'Annual Leave','Sick Leave':'Sick Leave','Insurance Sick Leave':'Insurance Sick Leave',Emergency:'Emergency Leave',Unpaid:'Unpaid Leave','Day Off':'Day Off',Maternity:'Maternity Leave',Bereavement:'Bereavement Leave'};
+const LEAVE_TYPES=['Annual','Sick Leave','Insurance Sick Leave','Emergency','Unpaid','Day Off','Maternity','Bereavement','Suspension'];
+const LEAVE_DISPLAY={Annual:'Annual Leave','Sick Leave':'Sick Leave','Insurance Sick Leave':'Insurance Sick Leave',Emergency:'Emergency Leave',Unpaid:'Unpaid Leave','Day Off':'Day Off',Maternity:'Maternity Leave',Bereavement:'Bereavement Leave',Suspension:'Work Suspension'};
 const STATUSES=['Pending','Approved','Rejected'];
 const OKST=['Approved','Confirmed','confirmed','Pending'];
 const APPROVED=['Approved','Confirmed','confirmed'];
@@ -305,7 +305,7 @@ const JOB_FACTORS=[
  {key:'hospitality',label:'HOSPITALITY/COURTESY',ar:'الضيافة واللباقة',weight:5,max:25},{key:'appearance',label:'APPEARANCE/GROOMING',ar:'المظهر',weight:5,max:25},
  {key:'initiative',label:'INITIATIVE',ar:'المبادرة',weight:4,max:20},{key:'communication',label:'COMMUNICATION',ar:'التواصل',weight:4,max:20}];
 const EV_TOTAL_W=42, EV_TOTAL_MAX=210;
-const DATA_AR={"5%":"ذوي الهمم 5%","10years":"10 سنوات تأمين","50years":"50 سنة فأكثر","Front Office":"المكتب الأمامي","Housekeeping":"الإشراف الداخلي","Financial":"المالية","Service":"الخدمة","Kitchen":"المطبخ","Maintenance":"الصيانة","Laundry":"المغسلة","Steward":"الستيوارد","Security":"الأمن","Human Resources":"الموارد البشرية","Spa":"السبا","Recreation":"الترفيه","Reservation and Marketing":"الحجز والتسويق","Concierge and Trips":"الكونسيرج والرحلات","Farm Workers":"عمال المزرعة","Pending":"قيد الانتظار","Approved":"معتمد","Rejected":"مرفوض","Active":"ساري","Expired":"منتهي","Present":"حاضر","Absent":"غائب","Late":"متأخر","Leave":"إجازة","Day Off":"يوم راحة","Annual":"سنوية","Annual Leave":"إجازة سنوية","Sick Leave":"إجازة مرضية","Insurance Sick Leave":"مرضية تأمينية","Emergency":"طارئة","Emergency Leave":"إجازة طارئة","Unpaid":"بدون أجر","Unpaid Leave":"إجازة بدون أجر","Maternity":"وضع","Maternity Leave":"إجازة وضع","Bereavement":"وفاة","Bereavement Leave":"إجازة وفاة","Single":"أعزب","Married":"متزوج","Divorced":"مطلق","Widowed":"أرمل","Completed":"أدى الخدمة","Not Completed":"لم يؤدِّ","Exempted":"معفى","Regular":"منتظم","Seasonal":"موسمي","Casual":"مياومة","Fixed Term":"محدد المدة","Indefinite":"غير محدد المدة","Part Time":"دوام جزئي","Intern":"متدرب","Absence":"غياب","Late Arrival":"تأخير","Violation":"مخالفة","Misconduct":"سوء سلوك","Damage":"إتلاف","Other":"أخرى","Excellent":"ممتاز","Very Good":"جيد جداً","Good":"جيد","Acceptable":"مقبول","Poor":"ضعيف","Resigned":"مستقيل","On Leave":"في إجازة","Penalty":"جزاء","Advance":"سلفة","CL Staff":"خصم عاملين","New Hire":"معين حديثاً"};
+const DATA_AR={"5%":"ذوي الهمم 5%","10years":"10 سنوات تأمين","50years":"50 سنة فأكثر","Front Office":"المكتب الأمامي","Housekeeping":"الإشراف الداخلي","Financial":"المالية","Service":"الخدمة","Kitchen":"المطبخ","Maintenance":"الصيانة","Laundry":"المغسلة","Steward":"الستيوارد","Security":"الأمن","Human Resources":"الموارد البشرية","Spa":"السبا","Recreation":"الترفيه","Reservation and Marketing":"الحجز والتسويق","Concierge and Trips":"الكونسيرج والرحلات","Farm Workers":"عمال المزرعة","Pending":"قيد الانتظار","Approved":"معتمد","Rejected":"مرفوض","Active":"ساري","Expired":"منتهي","Present":"حاضر","Absent":"غائب","Late":"متأخر","Leave":"إجازة","Day Off":"يوم راحة","Annual":"سنوية","Annual Leave":"إجازة سنوية","Sick Leave":"إجازة مرضية","Insurance Sick Leave":"مرضية تأمينية","Emergency":"طارئة","Emergency Leave":"إجازة طارئة","Unpaid":"بدون أجر","Suspension":"انقطاع عن العمل","Work Suspension":"انقطاع عن العمل","Unpaid Leave":"إجازة بدون أجر","Maternity":"وضع","Maternity Leave":"إجازة وضع","Bereavement":"وفاة","Bereavement Leave":"إجازة وفاة","Single":"أعزب","Married":"متزوج","Divorced":"مطلق","Widowed":"أرمل","Completed":"أدى الخدمة","Not Completed":"لم يؤدِّ","Exempted":"معفى","Regular":"منتظم","Seasonal":"موسمي","Casual":"مياومة","Fixed Term":"محدد المدة","Indefinite":"غير محدد المدة","Part Time":"دوام جزئي","Intern":"متدرب","Absence":"غياب","Late Arrival":"تأخير","Violation":"مخالفة","Misconduct":"سوء سلوك","Damage":"إتلاف","Other":"أخرى","Excellent":"ممتاز","Very Good":"جيد جداً","Good":"جيد","Acceptable":"مقبول","Poor":"ضعيف","Resigned":"مستقيل","On Leave":"في إجازة","Penalty":"جزاء","Advance":"سلفة","CL Staff":"خصم عاملين","New Hire":"معين حديثاً"};
 
 /* ── Utils ─────────────────────────────────────────────────── */
 const L=(en,ar)=>S.lang==='ar'?ar:en;
@@ -530,8 +530,9 @@ function payrollRow(emp,m,y){
  const sickDays=lvDays(['Sick','Sick Leave','Medical']);
  const sick=r2(sal/30/4*sickDays);
  const unpaidDays=lvDays(['Unpaid']);
+ const suspDays=lvDays(['Suspension']);   /* away from work (left and came back): those days are not paid, no insurance share charged */
  let unpaidIns=0;
- if(unpaidDays&&sal){const dayVal=sal/30*unpaidDays;unpaidIns=applyIns?sal*0.2975/30*unpaidDays:0;const rem=Math.max(0,sal-dayVal);
+ if((unpaidDays||suspDays)&&sal){const dayVal=Math.min(sal,sal/30*(unpaidDays+suspDays));unpaidIns=applyIns?sal*0.2975/30*unpaidDays:0;const rem=Math.max(0,sal-dayVal);
   if(service){service=r2(rem*(service/sal))}gross=rem+tr+al+service;
   if(applyIns){const b=Math.min(rem,insMax);ins=r2(b*0.11);health=healthOf(b)}}
  const unpaidDed=r2(unpaidIns);
@@ -566,7 +567,10 @@ function leaveSplit(empId){let dayoff=0,annTot=0,annDO=0;const seen=new Set();
   if(l.leave_type==='Day Off')dayoff+=d;else if(l.leave_type==='Annual'){annTot+=d;annDO+=Math.floor(d/ANNUAL_LEAVE_DAYS_PER_DAYOFF)}}
  return {dayoff,annTot,annDO,annAnn:annTot-annDO}}
 function typeInfo(t){if(t==='10years'||t==='50years')return {label:L('10 yrs / 50+ age','10 سنوات / 50+ سنة'),ann:30,full:97};if(t==='5%')return {label:L('Disability (5%)','ذوي الهمم 5%'),ann:45,full:112};return {label:L('Regular Employee','موظف منتظم'),ann:21,full:88}}
-function leaveBalance(e){const hd=parseD(e.hire_date);const mw=hd?Math.max(0,monthsBetween(hd,today())):0;const ti=typeInfo(e.employee_type);
+/* days the employee was away (approved "Suspension") up to a date — they do not count as service */
+function suspDaysUpTo(id,at){let n=0;at=parseD(at)||today();for(const l of DB.leaves){if(String(l.emp_id)!==String(id)||l.leave_type!=='Suspension'||!APPROVED.includes(l.status))continue;const s=parseD(l.start_date);let e=parseD(l.end_date);if(!s||!e||s>at)continue;if(e>at)e=at;n+=Math.max(0,daysBetween(s,e)+1)}return n}
+const suspMonths=(id,at)=>Math.floor(suspDaysUpTo(id,at)/30);
+function leaveBalance(e){const hd=parseD(e.hire_date);const mw=hd?Math.max(0,monthsBetween(hd,today())-suspMonths(e.emp_id)):0;const ti=typeInfo(e.employee_type);
  let hol=15,dof=52,ann,notes;if(mw<6){ann=0;dof=mw*4;notes=L(`Probation — Day Off only: ${dof}`,`فترة اختبار — راحات فقط: ${dof}`)}else if(mw<12){ann=r2((mw-5)*ti.ann/12);notes=L(`Prorated — ${mw-5} months`,`نسبي — ${mw-5} شهر`)}else{ann=ti.ann;notes=L('Full annual balance','رصيد سنوي كامل')}
  let svc=fmtService(mw);if(e.svc_override!=null&&e.svc_override!=='')svc=String(e.svc_override);if(e.hol_override!=null&&e.hol_override!=='')hol=num(e.hol_override);if(e.ann_override!=null&&e.ann_override!=='')ann=num(e.ann_override);
  const sp=leaveSplit(e.emp_id);let taken=0,base=dof;if(e.dof_override!=null&&e.dof_override!==''){const rem=num(e.dof_override);taken=Math.max(0,r2(52-Math.min(rem,52)));base=52}
@@ -574,7 +578,7 @@ function leaveBalance(e){const hd=parseD(e.hire_date);const mw=hd?Math.max(0,mon
  const annCons=r2(sp.annAnn+over),used=r2(doCons+annCons),total=r2(hol+base+ann),adj=num(e.leave_balance_adjustment);
  if(over>0)notes+=' — '+L(`Day Off finished: ${over} day(s) deducted from annual`,`انتهى رصيد الراحات: خُصم ${over} يوم من السنوي`);
  return {mw,svc,type:ti.label,hol,dofBase:base,dof:Math.max(0,r2(base-doCons)),ann:Math.max(0,r2(ann-annCons)),annFull:ann,over,total,used,adj,remaining:Math.max(0,r2(total+adj-used)),notes,probation:mw<6}}
-function annualEntitlement(e,at){const hd=parseD(e.hire_date)||today();const mw=monthsBetween(hd,at||today());const ti=typeInfo(e.employee_type);if(mw<6)return 0;if(mw<12)return r2((mw-5)*ti.ann/12);return ti.ann}
+function annualEntitlement(e,at){const hd=parseD(e.hire_date)||today();const mw=Math.max(0,monthsBetween(hd,at||today())-suspMonths(e.emp_id,at));const ti=typeInfo(e.employee_type);if(mw<6)return 0;if(mw<12)return r2((mw-5)*ti.ann/12);return ti.ann}
 function usedAnnualDayOff(id){return DB.leaves.filter(l=>String(l.emp_id)===String(id)&&APPROVED.includes(l.status)&&['Annual','Day Off'].includes(l.leave_type)).reduce((s,l)=>s+leaveDays(l),0)}
 function applyDayOff(d,only){d=parseD(d);if(!d)return [];const ds=dmy(d);const out=[];
  for(const e of (only||activeEmps())){if(DB.attendance.some(a=>String(a.emp_id)===String(e.emp_id)&&fmtD(a.date)===ds))continue;const lt=approvedLeaveOn(e.emp_id,d);
@@ -862,6 +866,7 @@ function lvCalc(){const f=F();if(!f)return;const s=parseD(fv(f,'start_date')),e=
  const t=fv(f,'leave_type'),sal=num(emp.salary),daily=sal/30;let msg='';
  if(t==='Sick Leave')msg=L('Sick leave deduction','خصم الإجازة المرضية')+`: (${money(sal)} ÷ 30 ÷ 4) × ${d} = <b>${money(daily/4*d)}</b>`;
  else if(t==='Insurance Sick Leave')msg=L('Insurance sick deduction','خصم المرضي التأميني')+`: (${money(sal)} ÷ 30) × ${d} = <b>${money(daily*d)}</b>`;
+ else if(t==='Suspension')msg=L('Away from work (left and coming back): these days are not paid, no Day Off or annual balance is used, and they do not count as service. No need to stop the salary. If the return date changes, just edit the end date.','انقطاع عن العمل (مشي وراجع): الأيام دي مش بتتحسب مرتب، ومش بتخصم من رصيد الراحات ولا السنوي، ومش بتتحسب مدة خدمة. مش محتاج توقف المرتب. ولو ميعاد الرجوع اتغيّر عدّل تاريخ النهاية بس.')+` — ${d} ${L('days','يوم')}`;
  else if(t==='Unpaid'){const ins=isInsured(emp)?sal*0.2975/30*d:0;msg=L('Unpaid: days value','بدون أجر: قيمة الأيام')+` ${money(daily*d)} + ${L('insurance shares 29.75%','حصتا التأمين 29.75%')} ${money(ins)} = <b>${money(daily*d+ins)}</b>`}
  else if(t==='Annual'){const p=Math.floor(d/7);msg=L('Balance split','توزيع الرصيد')+`: ${p} ${L('from Day Off','من الراحات')} + ${d-p} ${L('from annual','من السنوي')}`}
  else if(t==='Day Off')msg=L('Deducted from Day Off balance','يُخصم من رصيد الراحات')+`: ${d}`;
@@ -1896,9 +1901,9 @@ const asI=v=>v==null||v===''?v:Math.round(num(v));
    NO · CL.NO · NAME · OB · 1..31 · CB · CR · NB · V · P · S · X · PH · U · O
    OB = opening balance, CB = OB − V − O, CR = credit added by hand, NB = CB + CR → next month's OB */
 const AS_CODES=['V','P','S','X','PH','U','O'];
-const AS_COLOR={P:['#FFE699','#000'],O:['#0070C0','#fff'],V:['#B4C6E7','#000'],S:['#F4CCCC','#000'],X:['#FFC7CE','#9C0006'],PH:['#92D050','#000'],U:['#F8CBAD','#000']};
+const AS_COLOR={P:['#FFE699','#000'],O:['#0070C0','#fff'],V:['#B4C6E7','#000'],S:['#F4CCCC','#000'],X:['#FFC7CE','#9C0006'],PH:['#92D050','#000'],U:['#F8CBAD','#000'],'—':['#E2E8F0','#64748B']};
 function asCodeOf(st){const s=String(st||'').toLowerCase();if(!s)return '';if(s==='day off')return 'O';if(s==='absent')return 'X';if(s.includes('public')||s.includes('official')||s.includes('holiday'))return 'PH';
- if(s.includes('unpaid'))return 'U';if(s.includes('sick'))return 'S';if(s.includes('maternity')||s.includes('bereavement'))return 'S';if(s.includes('annual')||s.includes('emergency')||s==='leave'||s.includes('vacation'))return 'V';if(s==='present'||s==='late')return 'P';return ''}
+ if(s.includes('suspension'))return '—';if(s.includes('unpaid'))return 'U';if(s.includes('sick'))return 'S';if(s.includes('maternity')||s.includes('bereavement'))return 'S';if(s.includes('annual')||s.includes('emergency')||s==='leave'||s.includes('vacation'))return 'V';if(s==='present'||s==='late')return 'P';return ''}
 const asKey=(y,m)=>`${y}-${pad(m)}`;
 /* every sheet follows the payroll cycle: month M = 25th of the previous month → 24th of M */
 function asPeriod(y,m){const [ps,pe]=periodBounds(m,y);const days=[];for(let d=new Date(ps);d<=pe;d=addDays(d,1))days.push(new Date(d));return {ps,pe,days}}
@@ -1960,7 +1965,7 @@ ROUTES.attsheet=(per,mode)=>{S.tmp.asMode=mode==='heads'?'heads':'';const MS=mod
  +`<div class="wrap"><div class="filters"><div class="fld"><label>${L('Payroll month','شهر المرتبات')}</label><input type="month" value="${y}-${pad(m)}" onchange="if(this.value)go('attsheet/'+this.value+'${MS}')"></div>
   <div class="fld"><label>${L('Department','القسم')}</label>${sel('asdep',deptOpts(),S.tmp.asDep||'',L('All departments (each one separate)','كل الأقسام (كل قسم لوحده)'),`onchange="S.tmp.asDep=this.value;render()"`)}</div>
   <div class="fld" style="flex:2"><label>${L('Search','بحث')}</label><input type="text" value="${esc(S.srch.tas||'')}" placeholder="${esc(L('Code or name','الكود أو الاسم'))}" oninput="S.srch.tas=this.value;clearTimeout(S.tmp._asq);S.tmp._asq=setTimeout(()=>{const p=this.selectionStart;render();const n=document.querySelector('.filters input[type=text]');if(n){n.focus();try{n.setSelectionRange(p,p)}catch(e){}}},350)"></div></div>
-  <div class="aslg">${AS_CODES.map(k=>`<span style="background:${AS_COLOR[k][0]};color:${AS_COLOR[k][1]}">${k}</span> ${{V:L('Vacation','إجازة سنوية'),P:L('Present','حاضر'),S:L('Sick / special','مرضي / خاصة'),X:L('Absent','غياب'),PH:L('Public holiday','عطلة رسمية'),U:L('Unpaid','بدون أجر'),O:L('Day Off','راحة')}[k]}`).join(' &nbsp; ')} · <span class="asmiss" style="border:1px solid #CBD5E1">·</span> ${L('nothing recorded yet','لسه مفيش تسجيل')} · <span class="asna" style="border:1px solid #CBD5E1">—</span> ${L('before hire','قبل التعيين')} · <span style="border:1px solid #CBD5E1;background:#fff">&nbsp;</span> ${L('coming days','أيام جاية')} · <span class="muted">${L('OB and CR are editable','OB و CR تقدر تعدّلهم')}</span></div>
+  <div class="aslg">${AS_CODES.map(k=>`<span style="background:${AS_COLOR[k][0]};color:${AS_COLOR[k][1]}">${k}</span> ${{V:L('Vacation','إجازة سنوية'),P:L('Present','حاضر'),S:L('Sick / special','مرضي / خاصة'),X:L('Absent','غياب'),PH:L('Public holiday','عطلة رسمية'),U:L('Unpaid','بدون أجر'),O:L('Day Off','راحة')}[k]}`).join(' &nbsp; ')} · <span class="asmiss" style="border:1px solid #CBD5E1">·</span> ${L('nothing recorded yet','لسه مفيش تسجيل')} · <span style="background:#E2E8F0;color:#64748B;border:1px solid #CBD5E1">—</span> ${L('before hire / away from work (Suspension)','قبل التعيين / منقطع عن العمل')} · <span style="border:1px solid #CBD5E1;background:#fff">&nbsp;</span> ${L('coming days','أيام جاية')} · <span class="muted">${L('OB and CR are editable','OB و CR تقدر تعدّلهم')}</span></div>
   <div class="tbl-wrap"><table class="tbl assh" dir="ltr"><thead>${H}</thead><tbody>${body}${grand}</tbody></table></div></div>`};
 function asPrint(y,m){const {groups,last}=asGroups(y,m);
  const c=x=>{const k=AS_COLOR[x];return `<td${k?` style="background:${k[0]};color:${k[1]}"`:''}>${x||''}</td>`};
@@ -2224,6 +2229,23 @@ function normEmpDates(){if(!DB||!DB.employees)return 0;let n=0;const fix=e=>{if(
   const d=parseD(v);if(d&&dmy(d)!==v){e[k]=dmy(d);ch=true}}if(ch)n++};
  Object.values(DB.employees).forEach(fix);Object.values(DB.archived_employees||{}).forEach(fix);return n}
 let _ndT=0;setInterval(()=>{if(!S.user||!DB||!isAdmin())return;if(Date.now()-_ndT<10*60000)return;_ndT=Date.now();const n=normEmpDates();if(n){log('Dates normalized',`${n} employee(s) → dd/mm/yyyy`,'employees');saveDB();if(/^#\/(dashboard|dash|employees)?/.test(getHash())&&!uiBusy())render()}},15000);
+/* ═══════════ Work suspension (employee left for a while and comes back) ═══════════
+   Leave type "Suspension" (انقطاع عن العمل), approved like any leave:
+   • the daily auto-close records "Suspension" for those days — no Day Off, nothing taken from the balances
+   • the days are not paid (payroll), and do not count as service months
+   • Day Off records already written for those days (suspension entered late) are turned into "Suspension"
+     and the Day Off balance is given back */
+function suspFix(){if(!DB||!DB.leaves)return 0;let n=0;const ls=DB.leaves.filter(l=>l.leave_type==='Suspension'&&APPROVED.includes(l.status));if(!ls.length)return 0;
+ const rng={};ls.forEach(l=>{const s=parseD(l.start_date),e=parseD(l.end_date);if(s&&e)(rng[String(l.emp_id)]=rng[String(l.emp_id)]||[]).push([s,e])});
+ for(const a of DB.attendance){const r=rng[String(a.emp_id)];if(!r)continue;if(String(a.check_in||'').trim()||String(a.check_out||'').trim())continue;const st=String(a.status||'');if(st!=='Day Off'&&st!=='Absent')continue;
+  const d=parseD(a.date);if(!d||!r.some(([s,e])=>d>=s&&d<=e))continue;
+  if(st==='Day Off'){const e=getEmp(a.emp_id);if(e&&e.dof_override!=null&&e.dof_override!=='')e.dof_override=r2(num(e.dof_override)+1)}
+  a.status='Suspension';n++}
+ return n}
+function suspRun(){const n=suspFix();if(n){log('Work suspension',`${n} day(s) turned from Day Off/Absent into Suspension — Day Off balance given back`,'leave');saveDB()}return n}
+{const _ap=approveLeave;approveLeave=function(id,silent){const r=_ap.apply(this,arguments);const l=DB.leaves.find(x=>x.leave_id===id);if(l&&l.leave_type==='Suspension'){const n=suspRun();if(n&&!silent)notify(L(`${n} Day Off record(s) inside the suspension were returned to the balance`,`${n} يوم راحة كانوا متسجلين في فترة الانقطاع اترجعوا للرصيد`),'info')}return r}}
+{const _sv=saveLeave;saveLeave=function(old){const r=_sv.apply(this,arguments);suspRun();return r}}
+setInterval(()=>{if(S.user&&DB&&isAdmin())suspRun()},60000);
 
 /* ═══════════════════ ONLINE MULTI-USER ENGINE ═══════════════════
    All users work at the same time. Every change is detected per record,
@@ -2234,7 +2256,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793005862';
+const BUILD_ID='1793014715';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
