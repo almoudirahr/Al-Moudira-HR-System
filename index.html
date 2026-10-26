@@ -547,6 +547,8 @@ const MR_HEAD=['Bank Code','Name','Department','Basic','Transport','Allowances',
 const MR_HEAD_AR=['كود البنك','الاسم','القسم','الأساسي','الانتقالات','البدلات','الخدمة','الإجمالي','التأمينات','التأمين الصحي','الجزاءات','الغياب','المرضي','السلف','الخصومات','خصم العاملين','الضريبة','الصافي'];
 const mrHead=()=>S.lang==='ar'?MR_HEAD_AR:MR_HEAD;
 const rowArr=r=>[r.code,r.name,r.dept,r.basic,r.transport,r.allowances,r.service,r.gross,r.insurance,r.health,r.penalties,r.absent,r.sick,r.advances,r.deductions,r.cl_staff,r.tax,r.net].map((v,i)=>i<3?v:Number(r2(v)).toFixed(2));
+/* gets the 12% service charge: marked eligible in the employee file (Financial tab), salary not stopped */
+const svcElig=e=>!!e&&e.service_charge_eligible!==false&&e.salary_active!==false&&!isResigned(e);
 function payrollEmps(){const bk=e=>{const b=String(e.bank_code||'').trim();return b?(/^\d+$/.test(b)?[0,+b,'']:[1,0,b.toLowerCase()]):[2,0,'']};
  return Object.values(DB.employees).filter(e=>e.salary_active!==false&&!isResigned(e)).sort((a,b)=>{const da=deptRank(deptName(a.department)),db=deptRank(deptName(b.department));if(da!==db)return da-db;const na=deptName(a.department),nb=deptName(b.department);if(na!==nb)return na.localeCompare(nb);const x=bk(a),z=bk(b);return x[0]-z[0]||x[1]-z[1]||x[2].localeCompare(z[2])})}
 function monthlyData(m,y){return payrollEmps().map(e=>rowArr(payrollRow(e,m,y)))}
@@ -650,7 +652,7 @@ ROUTES.dashboard=()=>{const E=activeEmps(),T=todaySets(),all=Object.values(DB.em
  const byDept={};E.forEach(e=>{const n=deptName(e.department);byDept[n]=(byDept[n]||0)+1});const mx=Math.max(1,...Object.values(byDept));
  const typ=k=>E.filter(e=>empClass(e)===k).length;
  return head('📊',L('Dashboard','لوحة التحكم'),`${L('Today','اليوم')}: ${todayS()}`,'#1E3A5F',btn('🔄 '+L('Refresh','تحديث'),'render()','ghost'))+`<div class="wrap">
- <div class="stats">${stat('👥',L('Active Employees','الموظفون الحاليون'),E.length,'#06B6D4','employees')}${stat('🏢',L('Departments','الأقسام'),Object.keys(DB.departments).length,'#10B981','departments')}${stat('💵',L('Advances (this month)','السلف (هذا الشهر)'),DB.advances.filter(a=>inCurMonth(a.date)).length,'#F59E0B','advances')}${stat('⚠️',L('Penalties (this month)','الجزاءات (هذا الشهر)'),DB.penalties.filter(a=>inCurMonth(a.date)).length,'#EF4444','penalties')}${stat('🚫',L('Stopped Salaries','مرتبات موقوفة'),all.filter(e=>e.salary_active===false&&!isResigned(e)).length,'#64748B','payroll/stopped')}${stat('⏳',L('Pending Approvals','بانتظار الاعتماد'),pend,'#8B5CF6','dash/pending')}</div>
+ <div class="stats">${stat('👥',L('Active Employees','الموظفون الحاليون'),E.length,'#06B6D4','employees')}${stat('🏢',L('Departments','الأقسام'),Object.keys(DB.departments).length,'#10B981','departments')}${stat('💎',L('Service Charge 12%','سيرفس تشارج 12%'),E.filter(svcElig).length,'#0EA5E9','dash/service')}${stat('💵',L('Advances (this month)','السلف (هذا الشهر)'),DB.advances.filter(a=>inCurMonth(a.date)).length,'#F59E0B','advances')}${stat('⚠️',L('Penalties (this month)','الجزاءات (هذا الشهر)'),DB.penalties.filter(a=>inCurMonth(a.date)).length,'#EF4444','penalties')}${stat('🚫',L('Stopped Salaries','مرتبات موقوفة'),all.filter(e=>e.salary_active===false&&!isResigned(e)).length,'#64748B','payroll/stopped')}${stat('⏳',L('Pending Approvals','بانتظار الاعتماد'),pend,'#8B5CF6','dash/pending')}</div>
  ${dashMonthHTML()}
  <div class="h2">📅 ${L("Today's Attendance","حضور اليوم")}</div>
  <div class="stats">${stat('✅',L('Checked-In Today','الحاضرون اليوم'),new Set(T.att.map(a=>a.emp_id)).size,'#10B981','dash/checkin')}${stat('🏖️',L('On Leave Today','في إجازة اليوم'),new Set(T.lv.map(a=>a.emp_id)).size,'#8C3AED','dash/leave')}${stat('☀️',L('Day Off Today','راحة اليوم'),new Set([...T.doff,...T.doffAtt].map(a=>a.emp_id)).size,'#F59E0B','dash/dayoff')}${stat('🎂',L('Birthdays Today','أعياد ميلاد اليوم'),T.bd.length,'#EC4899','dash/birthday')}</div>
@@ -668,6 +670,7 @@ ROUTES.dash=(kind)=>{const T=todaySets();let title='',cols=[],rows=[];const E=ac
  else if(kind==='birthday'){title=L('Birthdays Today 🎉','أعياد ميلاد اليوم 🎉');cols=[L('Code','الكود'),L('Name','الاسم'),L('Department','القسم'),L('Birth Date','الميلاد'),L('Age','العمر')];rows=T.bd.map(e=>({c:[esc(e.emp_id),'🎂 '+esc(e.name),esc(tv(empDept(e))),fmtD(e.birth_date),ageOf(e.birth_date)]}))}
  else if(kind==='pending'){title=L('Pending Approvals','بانتظار الاعتماد');cols=[L('Module','الوحدة'),L('ID','الرقم'),L('Employee','الموظف'),L('Details','التفاصيل'),L('Open','فتح')];
   [['leaves','leave_id',L('Leave','إجازة'),r=>tv(r.leave_type)+' '+fmtD(r.start_date)],['advances','advance_id',L('Advance','سلفة'),r=>money(r.amount)],['penalties','penalty_id',L('Penalty','جزاء'),r=>tv(r.penalty_type)+' '+money(r.amount)],['cl_staff','cl_id',L('CL Staff','خصم العاملين'),r=>money(r.amount)]].forEach(([c,k,lb,d])=>DB[c].filter(r=>r.status==='Pending').forEach(r=>rows.push({c:[lb,esc(r[k]),esc(empName(r.emp_id)),esc(d(r)),btn('↗',`go('${c}')`,'sm b')]})))}
+ else if(kind==='service'){cols=ec;title=L('Service Charge 12% — eligible employees','سيرفس تشارج 12% — الموظفين المستحقين');rows=E.filter(svcElig).map(empRow)}
  else if(kind&&kind.startsWith('type_')){const t=kind.slice(5)==='pct5'?'5%':kind.slice(5);cols=ec;title=L('Employees','الموظفون')+': '+tv(t==='worker'?'10 yrs / 50+':t==='casual'?'Casual':t);
   rows=E.filter(e=>t==='casual'?isCasual(e):t==='worker'?['10years','50years'].includes(e.employee_type):empClass(e)===t).map(empRow)}
  return head('📋',title,`${rows.length} ${L('records','سجل')}`,'#1E3A5F',btn('← '+L('Back','رجوع'),"go('dashboard')",'ghost')+btn('🖨️ '+L('Print','طباعة'),`printVisible(${q(title)},'tdash')`,'ghost'))+`<div class="wrap">${searchBox('tdash')}${table(cols,rows,{id:'tdash'})}</div>`};
@@ -2224,7 +2227,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1792932888';
+const BUILD_ID='1792996702';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
