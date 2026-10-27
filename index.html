@@ -580,7 +580,8 @@ let _lvVer=0;const lvBump=()=>{_lvVer++};
 /* rebuilt once per screen / action: reused inside one render, thrown away after it or after any save */
 function lvIndex(){const sig=_lvVer+'|'+DB.attendance.length+'|'+DB.leaves.length;if(_lvIx.sig===sig&&_lvIx.live)return _lvIx;
  const lv={},dof={};for(const l of DB.leaves){if(!APPROVED.includes(l.status))continue;const s=parseD(l.start_date),e=parseD(l.end_date);if(!s||!e)continue;(lv[String(l.emp_id)]=lv[String(l.emp_id)]||[]).push({id:l.leave_id,t:l.leave_type,s,e})}
- for(const a of DB.attendance){if(a.status!=='Day Off'||a.auto===0||String(a.check_in||'').trim()||String(a.check_out||'').trim())continue;const d=parseD(a.date);if(!d)continue;const id=String(a.emp_id);
+ const pun=new Set();for(const a of DB.attendance){if(String(a.check_in||'').trim()||String(a.check_out||'').trim())pun.add(String(a.emp_id)+'|'+fmtD(a.date))}const seenD=new Set();  /* a day is counted once, and never when the employee punched that day */
+ for(const a of DB.attendance){if(a.status!=='Day Off'||a.auto===0||String(a.check_in||'').trim()||String(a.check_out||'').trim())continue;const d=parseD(a.date);if(!d)continue;const id=String(a.emp_id);const dk=id+'|'+fmtD(a.date);if(pun.has(dk)||seenD.has(dk))continue;seenD.add(dk);
   if((lv[id]||[]).some(x=>d>=x.s&&d<=x.e))continue;(dof[id]=dof[id]||[]).push(d.getTime())}
  _lvIx={sig,lv,dof,live:true};Promise.resolve().then(()=>{_lvIx.live=false});return _lvIx}
 /* leaves used inside [from, to) — Day Off leaves, Annual (every 7 annual days include 1 Day Off) */
@@ -2369,6 +2370,36 @@ setTimeout(()=>{empGuardSnap();
  ['onConnect','onHashConnect','onLoginConnect','lgConnect'].forEach(n=>{if(typeof window[n]==='function'){const f=window[n];window[n]=function(){EMPG.skip=Date.now()+15000;return f.apply(this,arguments)}}});
  if(typeof fullLoad==='function'){const _fl=fullLoad;fullLoad=async function(){EMPG.lastWhy='full reload from the server';const r=await _fl.apply(this,arguments);empGuardCheck();EMPG.lastWhy='';return r}}
  if(typeof onCycle==='function'){const _oc=onCycle;onCycle=async function(){const r=await _oc.apply(this,arguments);empGuardCheck();return r}}},0);
+/* ═══════════ Attendance de-duplication — one record per employee per day ═══════════
+   While the old server kept sending devices back to an old copy, the same fingerprint / Day Off was
+   recorded again and again (each time as a new record). This merges them:
+   • punched records of the same employee + day → ONE record (earliest check-in, latest check-out)
+   • a Day Off / Absent / Missing on a day the employee punched → removed
+   • identical records with no punch (e.g. Day Off twice) → one
+   The record that is kept is chosen the same way on every device, so two devices cleaning at the same time agree. */
+function attDedupe(){if(!DB||!Array.isArray(DB.attendance)||!DB.attendance.length)return 0;
+ const g=new Map();DB.attendance.forEach((a,i)=>{if(!a)return;const d=fmtD(a.date);if(!d)return;const k=String(a.emp_id).trim()+'|'+d;let x=g.get(k);if(!x)g.set(k,x=[]);x.push(i)});
+ const drop=new Set();let merged=0;const has=v=>!!String(v||'').trim();const ord=(x,y)=>String(x._k||'').localeCompare(String(y._k||''));
+ const AUTO=['Day Off','Absent','Missing','Present','Late',''];
+ for(const ix of g.values()){if(ix.length<2)continue;const recs=ix.map(i=>({i,r:DB.attendance[i]}));
+  const pun=recs.filter(x=>has(x.r.check_in)||has(x.r.check_out)).sort((x,y)=>ord(x.r,y.r));
+  if(pun.length){const keep=pun[0].r;
+   if(pun.length>1){const ins=pun.map(x=>x.r.check_in).filter(has).sort((p,q)=>timeMin(p)-timeMin(q));const cin=ins[0]||'';
+    let cout=keep.check_out||'';pun.forEach(x=>{const o=x.r.check_out;if(has(o)&&(!has(cout)||relOut(cin,o)>relOut(cin,cout)))cout=o});
+    const before=JSON.stringify(keep);if(cin)keep.check_in=cin;keep.check_out=cout;if(pun.some(x=>x.r.out_next))keep.out_next=true;
+    pun.slice(1).forEach(x=>{String(x.r.source||'').split('+').forEach(s=>s&&addSource(keep,s));drop.add(x.i)});
+    if(JSON.stringify(keep)!==before)merged++}
+   if(['Day Off','Absent','Missing',''].includes(String(keep.status||''))){keep.status='Present';merged++}
+   recs.forEach(x=>{if(!pun.includes(x)&&AUTO.includes(String(x.r.status||'')))drop.add(x.i)})}
+  else{const by={};recs.forEach(x=>{const s=String(x.r.status||'');(by[s]=by[s]||[]).push(x)});
+   for(const s in by){const l=by[s].sort((x,y)=>ord(x.r,y.r));l.slice(1).forEach(x=>drop.add(x.i))}}}
+ if(!drop.size&&!merged)return 0;
+ DB.attendance=DB.attendance.filter((a,i)=>!drop.has(i));if(typeof lvBump==='function')lvBump();
+ log('Duplicate attendance cleaned',`${drop.size} duplicate record(s) removed, ${merged} merged`,'attendance');saveDB();
+ if(/^#\/(attendance|dashboard|dash|attsheet|leaves)/.test(getHash())&&!uiBusy())render();return drop.size}
+let _ddLen=-1,_ddT=0;
+function attDedupeTick(){if(!S.user||!DB||!isAdmin())return;const n=(DB.attendance||[]).length;if(n===_ddLen&&Date.now()-_ddT<10*60000)return;_ddLen=n;_ddT=Date.now();try{attDedupe();_ddLen=(DB.attendance||[]).length}catch(e){console.warn('attDedupe',e)}}
+setInterval(attDedupeTick,20000);setTimeout(attDedupeTick,8000);
 
 /* ═══════════════════ ONLINE MULTI-USER ENGINE ═══════════════════
    All users work at the same time. Every change is detected per record,
@@ -2379,7 +2410,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793108397';
+const BUILD_ID='1793108874';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
