@@ -628,14 +628,31 @@ function lgEye(){const p=$('#lp');p.type=p.type==='password'?'text':'password';p
 function lgCaps(e){const c=$('#lgC');if(c&&e.getModifierState)c.textContent=e.getModifierState('CapsLock')?'⇪ '+L('Caps Lock is on','زر الأحرف الكبيرة مفعّل'):''}
 function lgClock(){const t=$('#lgT');if(!t)return;const d=new Date();t.textContent=pad(d.getHours())+':'+pad(d.getMinutes());const dd=$('#lgD');if(dd)dd.textContent=d.toLocaleDateString(S.lang==='ar'?'ar-EG':'en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});clearTimeout(S.tmp.lgT);S.tmp.lgT=setTimeout(lgClock,15000)}
 function lgFail(msg){const e=$('#lerr');e.textContent=msg;e.classList.remove('show');void e.offsetWidth;e.classList.add('show');$('#lgB').classList.remove('loading')}
-function doLogin(ev){try{ev&&ev.preventDefault&&ev.preventDefault()}catch(e){}const B=$('#lgB');if(B.classList.contains('loading'))return;B.classList.add('loading');const u=$('#lu').value.trim(),p=$('#lp').value;const all=allUsers();const k=Object.keys(all).find(x=>x.toLowerCase()===u.toLowerCase());const rec=k?all[k]:null;
- setTimeout(()=>{try{
+/* one login per browser: every tab / window of this browser shares it until Logout.
+   The session is only valid while the user still exists, is not stopped and the password was not changed by the admin. */
+const SESS2='modo_hr_session_v2';
+function pwSig(p){let h=0x811c9dc5;const s=String(p||'');for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)}return (h>>>0).toString(36)}
+function sessSave(k,role){const o={u:k,r:role,p:pwSig(userPw(k))};try{ST.set(SESS2,JSON.stringify(o))}catch(e){}SS.set(SESS,JSON.stringify({u:k,r:role}))}
+function sessValid(s){if(!s||!s.u)return null;const all=allUsers();const k=Object.keys(all).find(x=>x===s.u);if(!k||DB.disabled_users.includes(k))return null;if(s.p&&s.p!==pwSig(userPw(k)))return null;return {u:k,r:all[k].role}}
+function sessRead(){let s=null;try{s=JSON.parse(ST.get(SESS2)||'null')}catch(e){}if(!s){try{s=JSON.parse(SS.get(SESS)||'null')}catch(e){}}return s}
+function sessCheck(){if(!S.user)return true;const v=sessValid({u:S.user,p:(sessRead()||{}).p});if(v)return true;S.user=null;S.role=null;try{ST.del(SESS2)}catch(e){}SS.del(SESS);setFlash(L('Your account was changed or stopped by the admin — sign in again.','حسابك اتغيّر أو اتوقف من المسؤول — سجّل الدخول تاني.'),'err');render();return false}
+window.addEventListener('storage',ev=>{if(ev.key!==SESS2)return;if(!ev.newValue){if(S.user){S.user=null;S.role=null;SS.del(SESS);render()}return}
+ if(!S.user){let s=null;try{s=JSON.parse(ev.newValue)}catch(e){}const v=sessValid(s);if(v){S.user=v.u;S.role=v.r;SS.set(SESS,JSON.stringify({u:v.u,r:v.r}));render()}}});
+function doLogin(ev){try{ev&&ev.preventDefault&&ev.preventDefault()}catch(e){}const B=$('#lgB');if(B.classList.contains('loading'))return;B.classList.add('loading');const u=$('#lu').value.trim(),p=$('#lp').value;const all=allUsers();let k=Object.keys(all).find(x=>x.toLowerCase()===u.toLowerCase());let rec=k?all[k]:null;
+ setTimeout(async()=>{try{
+ /* this browser must be linked to the online server — otherwise it would open an EMPTY copy of the program */
+ if(typeof onlineOn==='function'&&!onlineOn()){const d=document.querySelector('.login details');if(d)d.open=true;lgFail('🔗 '+L('This browser is not linked to the online server yet, so it has none of the data. Open the setup link the admin sent you, or type the server link and key below and press Connect — then sign in.','المتصفح ده لسه مش مربوط بالسيرفر الأون لاين، فمفيهوش أي بيانات. افتح رابط الإعداد اللي الأدمن بعته، أو اكتب رابط السيرفر والمفتاح تحت واضغط «اتصال» — وبعدين سجّل الدخول.'));return}
+ /* first time on this browser: wait until ALL the data is loaded; otherwise take the newest users / passwords / stopped accounts */
+ if(typeof onlineOn==='function'&&onlineOn()){const lb=B.querySelector('.tx');const old=lb?lb.textContent:'';if(lb)lb.textContent=L('Loading data…','جاري تحميل البيانات…');
+  try{if(!ONL.shadow||!Object.keys(DB.employees||{}).length)await onCycle();else await Promise.race([onCycle(),new Promise(r=>setTimeout(r,6000))])}catch(x){}if(lb)lb.textContent=old;
+  if(!Object.keys(DB.employees||{}).length&&ONL.status==='err'){lgFail('📡 '+L('Could not load the data from the server (internet?). Try again.','مقدرتش أحمّل البيانات من السيرفر (النت؟). جرّب تاني.'));return}}   /* newest users / passwords / stopped accounts */
+ const all2=allUsers();const k2=Object.keys(all2).find(x=>x.toLowerCase()===u.toLowerCase());k=k2;rec=k2?all2[k2]:null;
  if(!rec||userPw(k)!==p){lgFail('❌ '+L('Invalid username or password','اسم المستخدم أو كلمة المرور غير صحيحة'));if(u){log('Login failed',`Failed login for '${u}'`,'security');saveDB()}return}
  if(DB.disabled_users.includes(k)){lgFail('⛔ '+L('This account has been stopped. Contact the admin.','تم إيقاف هذا الحساب. تواصل مع المسؤول.'));log('Login blocked',k,'security');saveDB();return}
  ST.set('modo_hr_remember',JSON.stringify($('#lr').checked?{u:k}:{}));
- S.user=k;S.role=rec.role;SS.set(SESS,JSON.stringify({u:k,r:rec.role}));log('Login',`User '${k}' logged in (role: ${rec.role})`,'auth');saveDB();
+ S.user=k;S.role=rec.role;sessSave(k,rec.role);log('Login',`User '${k}' logged in (role: ${rec.role})`,'auth');saveDB();
  go(allowed('dashboard')?'dashboard':(NAV.find(n=>allowed(n[0]))||NAV[0])[5])}catch(err){lgFail('⚠ '+err.message)}},250)}
-function logout(){log('Logout',`User '${S.user}' logged out`,'auth');saveDB();S.user=null;S.role=null;SS.del(SESS);ROUTE='';try{history.replaceState(null,'',location.pathname+location.search)}catch(e){try{location.hash=''}catch(e2){}}render()}
+function logout(){log('Logout',`User '${S.user}' logged out`,'auth');saveDB();S.user=null;S.role=null;SS.del(SESS);try{ST.del(SESS2)}catch(e){}ROUTE='';try{history.replaceState(null,'',location.pathname+location.search)}catch(e){try{location.hash=''}catch(e2){}}render()}
 const ROUTES={};
 function render(){applyDir();const app=$('#app');
  if(!S.user){app.innerHTML=loginPage();app.dataset.ok=1;const a=S.tmp.after;S.tmp.after=null;if(a)try{a()}catch(e){}return}
@@ -1284,7 +1301,7 @@ function logoUp(i){const f=i.files[0];if(!f)return;const rd=new FileReader();rd.
 function saveGeneral(){if(!isAdmin())return;const f=F();Object.assign(DB.settings,{company:fv(f,'company'),company_ar:fv(f,'company_ar'),signatory:fv(f,'signatory')});DB.insurance_settings={min:num(fv(f,'imin')),max:num(fv(f,'imax'))||16700};log('Settings updated','general','settings');saveDB();notify(L('Settings saved','تم حفظ الإعدادات'))}
 function setPassword(){return `<form id="frm" class="card" onsubmit="return false"><h3>🔒 ${L('Change Password','تغيير كلمة المرور')} — ${esc(S.user)}</h3><div class="grid">${fld(L('Current password','كلمة المرور الحالية'),inp('cur','','password'))}${fld(L('New password','كلمة المرور الجديدة'),inp('np','','password'))}${fld(L('Confirm','تأكيد'),inp('np2','','password'))}</div><div class="actions">${btn('💾 '+L('Update','تحديث'),'changePw()','g')}</div></form>`}
 function changePw(){const f=document.getElementById('pwf')||F();if(fv(f,'cur')!==userPw(S.user)){notify(L('Current password is incorrect','كلمة المرور الحالية غير صحيحة'),'err');return}const n=fv(f,'np');if(n.length<3){notify(L('Password too short','كلمة المرور قصيرة'),'err');return}if(n!==fv(f,'np2')){notify(L('Passwords do not match','كلمتا المرور غير متطابقتين'),'err');return}
- DB.user_passwords[S.user]=n;log('Change password',S.user,'security');saveDB();notify(L('Password changed','تم تغيير كلمة المرور'));render()}
+ DB.user_passwords[S.user]=n;if(typeof sessSave==='function')sessSave(S.user,S.role);log('Change password',S.user,'security');saveDB();notify(L('Password changed','تم تغيير كلمة المرور'));render()}
 function setUsers(){const all=allUsers();return `<div class="card"><h3>👥 ${L('Users Management','إدارة المستخدمين')}</h3><div style="margin-bottom:10px">${btn('➕ '+L('Add User','إضافة مستخدم'),"go('settings/users/new')",'g')}</div>
  ${table([L('Username','اسم المستخدم'),L('Role','الصلاحية'),L('Status','الحالة'),L('Type','النوع'),L('Pages','الصفحات'),L('Actions','إجراءات')],Object.entries(all).map(([u,r])=>{const dis=DB.disabled_users.includes(u);return {c:[esc(u),esc(L(...(ROLES[r.role]||[r.role,r.role]))),badge(dis?L('Stopped','موقوف'):L('Active','نشط'),dis?'bad':'ok'),r.custom?L('Custom','مضاف'):L('Built-in','أساسي'),DB.user_permissions[u]?DB.user_permissions[u].length:L('Role default','افتراضي'),`<div class="acts">${btn('✏️','go('+q('settings/users/'+encodeURIComponent(u))+')','sm b')}${u!=='admin'&&u!==S.user?btn(dis?'🟢':'⛔',`toggleUser(${q(u)})`,'sm '+(dis?'g':'d')):''}${r.custom&&u!==S.user?dbtn('🗑️',`delete DB.custom_users[${q(u)}];delete DB.user_permissions[${q(u)}];saveDB();render()`,'sm r'):''}</div>`]}}),{id:'tusr'})}</div>`}
 function toggleUser(u){const i=DB.disabled_users.indexOf(u);if(i>=0)DB.disabled_users.splice(i,1);else DB.disabled_users.push(u);log(i>=0?'Enable user':'Disable user',u,'security');saveDB();render()}
@@ -1294,7 +1311,7 @@ function userForm(u){const all=allUsers();const r=u?all[u]:null;if(u&&!r)return 
  <div class="actions">${btn('💾 '+L('Save','حفظ'),`saveUser(${u?q(u):"''"})`,'g')}${u?btn('↺ '+L('Reset to role default','إرجاع للافتراضي'),`delete DB.user_permissions[${q(u)}];saveDB();render()`,'y'):''}${btn('❌ '+L('Cancel','إلغاء'),"go('settings/users')",'r')}</div></form>`}
 function saveUser(old){const f=F();const u=fv(f,'un'),pw=fv(f,'pw'),role=fv(f,'role');if(!u){notify(L('Username required','اسم المستخدم مطلوب'),'err');return}const all=allUsers();
  if(!old){if(all[u]){notify(L('User already exists','المستخدم موجود'),'err');return}if(!pw){notify(L('Password required','كلمة المرور مطلوبة'),'err');return}DB.custom_users[u]={password:pw,role}}
- else{if(pw)DB.user_passwords[u]=pw;if(DB.custom_users[u]){DB.custom_users[u].role=role;if(pw)DB.custom_users[u].password=pw}}
+ else{if(pw)DB.user_passwords[u]=pw;if(DB.custom_users[u]){DB.custom_users[u].role=role;if(pw)DB.custom_users[u].password=pw}}if(u===S.user&&typeof sessSave==='function')sessSave(S.user,S.role);
  DB.user_permissions[u]=$$('.pchk').filter(c=>c.checked).map(c=>c.value);log(old?'Edit user':'Add user',u,'security');saveDB();setFlash(L('User saved','تم حفظ المستخدم'));go('settings/users')}
 function setData(){const sz=(JSON.stringify(DB).length/1048576).toFixed(2);return `<div class="card"><h3>💾 ${L('Backup Data','نسخ احتياطي')}</h3><p class="muted">${L('Database size','حجم البيانات')}: ${sz} MB — ${Object.keys(DB.employees).length} ${L('employees','موظف')}, ${DB.attendance.length} ${L('attendance rows','سجل حضور')}</p>${btn('💾 '+L('Backup Now (JSON)','نسخ احتياطي الآن (JSON)'),'backupNow()','g')}</div>
  <div class="card"><h3>📂 ${L('Restore / Import from desktop v65 (JSON or Excel backup)','استرجاع / استيراد من نسخة الديسكتوب v65 (نسخة JSON أو Excel)')}</h3><p class="muted">${L('Choose a backup JSON from this web app, or the hr_data.json file of the Python desktop program — all employees, attendance, leaves, payroll, advances, penalties, CL staff, evaluations, renewals, change of status, archive and users are imported.','اختر نسخة JSON من هذا البرنامج أو ملف hr_data.json من برنامج الديسكتوب (بايثون) — يتم استيراد كل الموظفين والحضور والإجازات والمرتبات والسلف والجزاءات وخصم العاملين والتقييمات والتجديدات وتغيير الحالة والأرشيف والمستخدمين.')}</p>
@@ -2269,7 +2286,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793086092';
+const BUILD_ID='1793088072';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
@@ -2333,7 +2350,7 @@ async function onCycle(){if(!onlineOn()||!DB)return;if(ONL.busy){ONL.again=true;
  catch(e){onStatus('err',e.message);console.warn('online',e)}
  finally{ONL.busy=false;if(changed)onRemoteChanged();if(ONL.again){ONL.again=false;setTimeout(onCycle,50)}}}
 function uiBusy(){const a=document.activeElement;const h=getHash();const typing=a&&a.matches&&a.matches('input,textarea,select')&&!(a.closest&&a.closest('.search'));return typing||/\/(new|edit|import|calc|bulk)/.test(h)||/settings\/(password|users\/)/.test(h)}
-function onRemoteChanged(){if(!S.user)return;if(!allUsers()[S.user]||DB.disabled_users.includes(S.user)){logout();return}if(uiBusy()){ONL.dirtyUI=true;const b=$('#onlb');if(b)b.outerHTML=onlineHTML();return}ONL.dirtyUI=false;const y=window.scrollY;const a=document.activeElement;const st=a&&a.dataset&&a.dataset.t?{t:a.dataset.t,p:a.selectionStart}:null;render();window.scrollTo(0,y);if(st){const n=document.querySelector(`.search input[data-t="${st.t}"]`);if(n){n.focus();try{n.setSelectionRange(st.p,st.p)}catch(e){}}}}
+function onRemoteChanged(){if(!S.user)return;if(!allUsers()[S.user]||DB.disabled_users.includes(S.user)){logout();return}if(typeof sessCheck==='function'&&!sessCheck())return;if(uiBusy()){ONL.dirtyUI=true;const b=$('#onlb');if(b)b.outerHTML=onlineHTML();return}ONL.dirtyUI=false;const y=window.scrollY;const a=document.activeElement;const st=a&&a.dataset&&a.dataset.t?{t:a.dataset.t,p:a.selectionStart}:null;render();window.scrollTo(0,y);if(st){const n=document.querySelector(`.search input[data-t="${st.t}"]`);if(n){n.focus();try{n.setSelectionRange(st.p,st.p)}catch(e){}}}}
 document.addEventListener('focusout',()=>setTimeout(()=>{if(ONL.dirtyUI&&!uiBusy())onRemoteChanged()},300));
 function onlineHTML(){if(!onlineOn())return `<span id="onlb" style="display:block;margin-top:6px;padding:6px 8px;border-radius:8px;background:#7F1D1D;color:#FECACA;font-size:11.5px;cursor:pointer" onclick="${isAdmin()?"go('settings/general/online')":'logout()'}">⚠ ${L('This device is NOT linked to the online server — data here is local only','هذا الجهاز غير مربوط بالخادم الأون لاين — البيانات هنا على الجهاز فقط')}</span>`;const n=ONL.online.length;const names=ONL.online.map(o=>o.user).filter((v,i,a)=>a.indexOf(v)===i);
  const dot=ONL.status==='err'?'#EF4444':ONL.status==='sync'?'#F59E0B':'#10B981';
@@ -2394,7 +2411,7 @@ async function onHashConnect(){const h=(()=>{try{return location.hash}catch(e){r
 
 /* ═══════════════════ Boot ═══════════════════ */
 function autoArchive(){if(!Object.keys(DB.employees).length)return;const t=today();let m=t.getMonth()+1,y=t.getFullYear();if(t.getDate()<25){m--;if(m<1){m=12;y--}}if(archiveSnapshot(m,y,false)){log('Auto archive',`${pad(m)}-${y}`,'payroll');saveDB()}}
-async function boot(){await loadDB();try{const mv=migrateResigned();if(mv){persist();setFlash(L(`${mv} resigned employee(s) moved to the Resignations archive.`,`تم نقل ${mv} موظف مستقيل إلى أرشيف الاستقالات وحذفهم من البيانات النشطة.`),'info')}}catch(e){}try{const s=JSON.parse(SS.get(SESS)||'null');if(s&&allUsers()[s.u]&&!DB.disabled_users.includes(s.u)){S.user=s.u;S.role=allUsers()[s.u].role}}catch(e){}
+async function boot(){await loadDB();try{const mv=migrateResigned();if(mv){persist();setFlash(L(`${mv} resigned employee(s) moved to the Resignations archive.`,`تم نقل ${mv} موظف مستقيل إلى أرشيف الاستقالات وحذفهم من البيانات النشطة.`),'info')}}catch(e){}try{const v=sessValid(sessRead());if(v){S.user=v.u;S.role=v.r;SS.set(SESS,JSON.stringify({u:v.u,r:v.r}))}else{try{ST.del(SESS2)}catch(e){}SS.del(SESS)}}catch(e){}
  autoArchive();render();
  onlineStart();onHashConnect();
  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();S.tmp.installEvt=e});
