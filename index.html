@@ -2345,7 +2345,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793092855';
+const BUILD_ID='1793096162';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
@@ -2359,9 +2359,14 @@ function snapHashes(){ensureKeys();const h={};ON_ARRS.forEach(c=>{const m=h[c]={
  ON_MAPS.forEach(c=>{const m=h[c]={};const src=c==='settings'?settingsForSync():(DB[c]||{});for(const k in src)m[k]=hstr(JSON.stringify(src[k]))});
  const r=h._root={};ON_ROOT.forEach(k=>{if(DB[k]!==undefined)r[k]=hstr(JSON.stringify(DB[k]))});
  h._fh={};ON_MERGE.forEach(c=>{const f=h._fh[c]={};for(const k in (DB[c]||{}))f[k]=fieldHashes(DB[c][k])});return h}
-function diffOps(){ensureKeys();const sh=ONL.shadow;const ops=[];
- ON_ARRS.forEach(c=>{const m=sh[c]||(sh[c]={});const seen=new Set();(DB[c]||[]).forEach(r=>{seen.add(r._k);const j=JSON.stringify(r),hh=hstr(j);if(m[r._k]!==hh){const o={c,k:r._k,v:JSON.parse(j),h:hh};if(m[r._k]===undefined)o.n=1;ops.push(o)}});for(const k in m)if(!seen.has(k))ops.push({c,k,v:null})});
- ON_MAPS.forEach(c=>{const m=sh[c]||(sh[c]={});const src=c==='settings'?settingsForSync():(DB[c]||{});for(const k in src){const j=JSON.stringify(src[k]),hh=hstr(j);if(m[k]!==hh)ops.push({c,k,v:JSON.parse(j),h:hh})}for(const k in m)if(!(k in src))ops.push({c,k,v:null})});
+/* SAFE DELETE: a record is deleted on the server ONLY if this tab actually had it and it was removed here.
+   If a record is simply missing from this tab's copy (old copy saved by another tab / device), it is NOT deleted —
+   the full data is loaded again from the server instead. */
+function onSeenSnap(){const s={};ON_ARRS.forEach(c=>{s[c]=new Set((DB[c]||[]).map(r=>r&&r._k).filter(Boolean))});ON_MAPS.forEach(c=>{s[c]=new Set(Object.keys(c==='settings'?settingsForSync():(DB[c]||{})))});ONL.seen=s}
+function onCanDelete(c,k){if(!ONL.seen)return false;const s=ONL.seen[c];if(s&&s.has(k))return true;ONL.missing=(ONL.missing||0)+1;return false}
+function diffOps(){ensureKeys();const sh=ONL.shadow;const ops=[];if(!ONL.seen)onSeenSnap();
+ ON_ARRS.forEach(c=>{const m=sh[c]||(sh[c]={});const seen=new Set();(DB[c]||[]).forEach(r=>{seen.add(r._k);const j=JSON.stringify(r),hh=hstr(j);if(m[r._k]!==hh){const o={c,k:r._k,v:JSON.parse(j),h:hh};if(m[r._k]===undefined)o.n=1;ops.push(o)}});for(const k in m)if(!seen.has(k)&&onCanDelete(c,k))ops.push({c,k,v:null})});
+ ON_MAPS.forEach(c=>{const m=sh[c]||(sh[c]={});const src=c==='settings'?settingsForSync():(DB[c]||{});for(const k in src){const j=JSON.stringify(src[k]),hh=hstr(j);if(m[k]!==hh)ops.push({c,k,v:JSON.parse(j),h:hh})}for(const k in m)if(!(k in src)&&onCanDelete(c,k))ops.push({c,k,v:null})});
  const m=sh._root||(sh._root={});ON_ROOT.forEach(k=>{if(DB[k]===undefined)return;const j=JSON.stringify(DB[k]),hh=hstr(j);if(m[k]!==hh)ops.push({c:'_root',k,v:JSON.parse(j),h:hh})});
  return ops}
 const ON_MERGE=['employees','archived_employees'];   /* records merged field by field when two devices change the same employee */
@@ -2381,14 +2386,14 @@ function applyRemoteOp(o){
  else if(ON_ARRS.includes(o.c)){const a=DB[o.c]||(DB[o.c]=[]);const i=a.findIndex(r=>r&&r._k===o.k);if(o.v===null){if(i>=0)a.splice(i,1)}else if(i>=0)a[i]=o.v;else a.push(o.v)}
  else if(o.c==='settings'){if(ON_LOCAL_SETTINGS.includes(o.k))return;if(o.v===null)delete DB.settings[o.k];else DB.settings[o.k]=o.v}
  else{const m=DB[o.c]||(DB[o.c]={});if(o.v===null)delete m[o.k];else m[o.k]=o.v}
- shadowSet({c:o.c,k:o.k,v:o.v})}
+ shadowSet({c:o.c,k:o.k,v:o.v});if(ONL.seen&&ONL.seen[o.c]){if(o.v===null)ONL.seen[o.c].delete(o.k);else ONL.seen[o.c].add(o.k)}}
 async function onCall(params,timeout){const c=onCfg();const ctl=typeof AbortController!=='undefined'?new AbortController():null;const t=setTimeout(()=>ctl&&ctl.abort(),timeout||60000);
  try{const r=await fetch(c.url,{method:'POST',body:JSON.stringify(Object.assign({key:c.key,client:onClient(),user:S.user||'',page:getHash()},params)),signal:ctl&&ctl.signal});const j=await r.json();if(!j.ok)throw new Error(j.error||'server error');return j}
  catch(e){if(e.name==='AbortError')throw new Error(L('Server timeout','انتهت مهلة الخادم'));if(/fetch|network|load failed/i.test(e.message))throw new Error(L('No internet / server unreachable','لا يوجد إنترنت أو الخادم غير متاح'));throw e}finally{clearTimeout(t)}}
 let _shadowT=null;function persistShadow(){clearTimeout(_shadowT);_shadowT=setTimeout(async()=>{const t=JSON.stringify({ver:ONL.ver,client:onClient(),h:ONL.shadow});if(IDB.ok)await IDB.set('modo_hr_shadow',t);else try{ST.set('modo_hr_shadow',t)}catch(e){}},400)}
 async function loadShadow(){let t=null;if(IDB.ok)t=await IDB.get('modo_hr_shadow');if(!t)t=ST.get('modo_hr_shadow');try{const o=JSON.parse(t||'null');if(o&&o.h){ONL.shadow=o.h;ONL.ver=o.ver||0;if(!o.h._fh){o.h._fh={};ON_MERGE.forEach(c=>{const f=o.h._fh[c]={};for(const k in (DB[c]||{}))f[k]=fieldHashes(DB[c][k])})}return true}}catch(e){}return false}
 function onStatus(st,err){ONL.status=st;ONL.err=err||'';const b=$('#onlb');if(b)b.outerHTML=onlineHTML()}
-async function fullLoad(){let r=await onCall({action:'load'},180000);if(r.retry){await new Promise(z=>setTimeout(z,3000));r=await onCall({action:'load'},180000);if(r.retry)throw new Error(L('Server is busy, try again in a minute','الخادم مشغول، حاول بعد دقيقة'))}const lang=DB.language;DB=normalizeDB(r.data||{});DB.language=lang;ensureKeys();ONL.ver=r.ver;ONL.shadow=snapHashes();await persist();persistShadow();setTimeout(()=>onCycle(),60);return r}
+async function fullLoad(){let r=await onCall({action:'load'},180000);if(r.retry){await new Promise(z=>setTimeout(z,3000));r=await onCall({action:'load'},180000);if(r.retry)throw new Error(L('Server is busy, try again in a minute','الخادم مشغول، حاول بعد دقيقة'))}const lang=DB.language;DB=normalizeDB(r.data||{});DB.language=lang;ensureKeys();ONL.ver=r.ver;ONL.shadow=snapHashes();await persist();persistShadow();setTimeout(()=>onCycle(),60);onSeenSnap();return r}
 async function uploadAll(){ensureKeys();const lang=DB.language;const data=JSON.parse(JSON.stringify(DB));delete data.language;delete data._stamp;if(data.settings){ON_LOCAL_SETTINGS.forEach(k=>delete data.settings[k])}
  data.mobile_punch_log=Object.fromEntries((data.mobile_punch_log||[]).map(r=>[r._k,r]));/* server keeps this log as a keyed map */
  const r=await onCall({action:'replace',data:JSON.stringify(data)},300000);ONL.ver=r.ver;ONL.shadow=snapHashes();persistShadow();return r}
@@ -2397,7 +2402,8 @@ async function onCycle(){if(!onlineOn()||!DB)return;if(ONL.busy){ONL.again=true;
   if(ops.length>4000){onStatus('sync');await uploadAll()}
   else if(ops.length){onStatus('sync');for(let i=0;i<ops.length;i+=1500){const chunk=ops.slice(i,i+1500);const r=await onCall({action:'commit',ops:chunk.map(o=>o.n?{c:o.c,k:o.k,v:o.v,n:1}:{c:o.c,k:o.k,v:o.v})},120000);chunk.forEach(shadowSet);
     (r.idmap||[]).forEach(m=>{const rec=(DB[m.c]||[]).find(x=>x._k===m.k);if(rec){rec[m.field]=m.to;shadowSet({c:m.c,k:m.k,v:rec});changed=true;notify(L(`Number ${m.from} was already used by another user — saved as ${m.to}`,`الرقم ${m.from} استخدمه مستخدم آخر — تم الحفظ برقم ${m.to}`),'info')}});
-    if(r.online)ONL.online=r.online}ONL.pendingN=0;persistShadow()}};
+    if(r.online)ONL.online=r.online}ONL.pendingN=0;persistShadow()}
+  onSeenSnap();if(ONL.missing){const n=ONL.missing;ONL.missing=0;console.warn('online: '+n+' record(s) missing in this copy — reloading from the server');await fullLoad();changed=true}};
  try{if(!ONL.shadow){if(!(await loadShadow())){await fullLoad();changed=true}}
   /* 1) bring in the other devices' changes FIRST, so an old copy here never overwrites a newer change made elsewhere */
   const p=await onCall({action:'poll',since:ONL.ver},60000);if(p.online)ONL.online=p.online;ONL.srv=p.server||'old';
@@ -2470,7 +2476,7 @@ async function onHashConnect(){const h=(()=>{try{return location.hash}catch(e){r
 
 /* ═══════════════════ Boot ═══════════════════ */
 function autoArchive(){if(!Object.keys(DB.employees).length)return;const t=today();let m=t.getMonth()+1,y=t.getFullYear();if(t.getDate()<25){m--;if(m<1){m=12;y--}}if(archiveSnapshot(m,y,false)){log('Auto archive',`${pad(m)}-${y}`,'payroll');saveDB()}}
-async function boot(){await loadDB();try{const mv=migrateResigned();if(mv){persist();setFlash(L(`${mv} resigned employee(s) moved to the Resignations archive.`,`تم نقل ${mv} موظف مستقيل إلى أرشيف الاستقالات وحذفهم من البيانات النشطة.`),'info')}}catch(e){}try{const v=sessValid(sessRead());if(v){S.user=v.u;S.role=v.r;SS.set(SESS,JSON.stringify({u:v.u,r:v.r}))}else{try{ST.del(SESS2)}catch(e){}SS.del(SESS)}}catch(e){}
+async function boot(){await loadDB();try{if(typeof onSeenSnap==='function')onSeenSnap()}catch(e){}try{const mv=migrateResigned();if(mv){persist();setFlash(L(`${mv} resigned employee(s) moved to the Resignations archive.`,`تم نقل ${mv} موظف مستقيل إلى أرشيف الاستقالات وحذفهم من البيانات النشطة.`),'info')}}catch(e){}try{const v=sessValid(sessRead());if(v){S.user=v.u;S.role=v.r;SS.set(SESS,JSON.stringify({u:v.u,r:v.r}))}else{try{ST.del(SESS2)}catch(e){}SS.del(SESS)}}catch(e){}
  autoArchive();render();
  onlineStart();onHashConnect();
  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();S.tmp.installEvt=e});
