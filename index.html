@@ -825,7 +825,7 @@ function addTitle(){const v=fv(F(),'jt');if(!v)return;if(DB.job_titles.includes(
 
 /* ═══════════════════ Departments ═══════════════════ */
 ROUTES.departments=(act,id)=>{if(act==='new'||act==='edit'){const d=act==='edit'?DB.departments[id]:{dept_id:nextId('D',Object.values(DB.departments),'dept_id',3),name:'',manager_id:''};if(!d)return head('❓',L('Not found','غير موجود'),'','#475569');
-  return head('🏢',act==='edit'?L('Edit Department','تعديل قسم'):L('Add Department','إضافة قسم'),'','#6366F1',btn('← '+L('Back','رجوع'),"go('departments')",'ghost'))+`<div class="wrap"><form id="frm" class="card" onsubmit="return false"><div class="grid">${fld(L('Department ID','كود القسم'),inp('dept_id',d.dept_id,'text',act==='edit'?'readonly':''),0,1)}${fld(L('Department Name','اسم القسم'),inp('name',d.name),0,1)}${fld(L('Manager (type code or name)','المدير (اكتب الكود أو الاسم)'),empPick('manager_id',d.manager_id),1)}</div>
+  return head('🏢',act==='edit'?L('Edit Department','تعديل قسم'):L('Add Department','إضافة قسم'),'','#6366F1',btn('← '+L('Back','رجوع'),"go('departments')",'ghost'))+`<div class="wrap"><form id="frm" class="card" onsubmit="return false"><div class="grid">${fld(L('Department ID','كود القسم'),inp('dept_id',d.dept_id,'text',act==='edit'?'readonly':''),0,1)}${fld(L('Department Name','اسم القسم'),inp('name',d.name),0,1)}${fld(L('Manager (type code or name)','المدير (اكتب الكود أو الاسم)'),empPick('manager_id',d.manager_id))}</div>
   <div class="actions">${btn('💾 '+L('Save','حفظ'),`saveDept(${act==='edit'?q(id):"''"})`,'g')}${btn('❌ '+L('Cancel','إلغاء'),"go('departments')",'r')}</div></form></div>`}
  const list=Object.values(DB.departments).sort((a,b)=>deptRank(a.name)-deptRank(b.name)||String(a.dept_id).localeCompare(b.dept_id));
  return head('🏢',L('Departments','الأقسام'),L('Manage company departments','إدارة أقسام الشركة'),'#6366F1',btn('➕ '+L('Add','إضافة'),"go('departments/new')",'g')+btn('📊 Excel',`xlsxSimple('Departments.xlsx','Departments',['ID','Name','Manager','Employees'],Object.values(DB.departments).map(d=>[d.dept_id,d.name,empName(d.manager_id),activeEmps().filter(e=>e.department===d.dept_id).length]))`,'y'))
@@ -2345,7 +2345,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793092455';
+const BUILD_ID='1793092855';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
