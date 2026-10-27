@@ -2345,7 +2345,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793096162';
+const BUILD_ID='1793097253';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
@@ -2363,10 +2363,14 @@ function snapHashes(){ensureKeys();const h={};ON_ARRS.forEach(c=>{const m=h[c]={
    If a record is simply missing from this tab's copy (old copy saved by another tab / device), it is NOT deleted —
    the full data is loaded again from the server instead. */
 function onSeenSnap(){const s={};ON_ARRS.forEach(c=>{s[c]=new Set((DB[c]||[]).map(r=>r&&r._k).filter(Boolean))});ON_MAPS.forEach(c=>{s[c]=new Set(Object.keys(c==='settings'?settingsForSync():(DB[c]||{})))});ONL.seen=s}
+function onHasLocal(o){if(o.c==='_root'||o.c==='settings')return false;if(ON_ARRS.includes(o.c))return (DB[o.c]||[]).some(r=>r&&r._k===o.k);return !!(DB[o.c]&&DB[o.c][o.k]!==undefined)}
+/* a delete sent by an OLD copy of the program (or a broken one) is not accepted: the record stays here and is sent back to the server */
+function onRefuseDelete(o,b){const m=ONL.shadow[o.c];if(m)delete m[o.k];ONL.refused=(ONL.refused||0)+1;
+ if(typeof log==='function'&&(o.c==='employees'||ONL.refused<=3))log('Delete refused (old copy)',`${o.c} #${o.k} — from ${b.user||'?'} (${b.client||'?'}) — that device must reload the program (Ctrl+F5)`,'security')}
 function onCanDelete(c,k){if(!ONL.seen)return false;const s=ONL.seen[c];if(s&&s.has(k))return true;ONL.missing=(ONL.missing||0)+1;return false}
 function diffOps(){ensureKeys();const sh=ONL.shadow;const ops=[];if(!ONL.seen)onSeenSnap();
- ON_ARRS.forEach(c=>{const m=sh[c]||(sh[c]={});const seen=new Set();(DB[c]||[]).forEach(r=>{seen.add(r._k);const j=JSON.stringify(r),hh=hstr(j);if(m[r._k]!==hh){const o={c,k:r._k,v:JSON.parse(j),h:hh};if(m[r._k]===undefined)o.n=1;ops.push(o)}});for(const k in m)if(!seen.has(k)&&onCanDelete(c,k))ops.push({c,k,v:null})});
- ON_MAPS.forEach(c=>{const m=sh[c]||(sh[c]={});const src=c==='settings'?settingsForSync():(DB[c]||{});for(const k in src){const j=JSON.stringify(src[k]),hh=hstr(j);if(m[k]!==hh)ops.push({c,k,v:JSON.parse(j),h:hh})}for(const k in m)if(!(k in src)&&onCanDelete(c,k))ops.push({c,k,v:null})});
+ ON_ARRS.forEach(c=>{const m=sh[c]||(sh[c]={});const seen=new Set();(DB[c]||[]).forEach(r=>{seen.add(r._k);const j=JSON.stringify(r),hh=hstr(j);if(m[r._k]!==hh){const o={c,k:r._k,v:JSON.parse(j),h:hh};if(m[r._k]===undefined)o.n=1;ops.push(o)}});for(const k in m)if(!seen.has(k)&&onCanDelete(c,k))ops.push({c,k,v:null,why:'del'})});
+ ON_MAPS.forEach(c=>{const m=sh[c]||(sh[c]={});const src=c==='settings'?settingsForSync():(DB[c]||{});for(const k in src){const j=JSON.stringify(src[k]),hh=hstr(j);if(m[k]!==hh)ops.push({c,k,v:JSON.parse(j),h:hh})}for(const k in m)if(!(k in src)&&onCanDelete(c,k))ops.push({c,k,v:null,why:'del'})});
  const m=sh._root||(sh._root={});ON_ROOT.forEach(k=>{if(DB[k]===undefined)return;const j=JSON.stringify(DB[k]),hh=hstr(j);if(m[k]!==hh)ops.push({c:'_root',k,v:JSON.parse(j),h:hh})});
  return ops}
 const ON_MERGE=['employees','archived_employees'];   /* records merged field by field when two devices change the same employee */
@@ -2399,8 +2403,8 @@ async function uploadAll(){ensureKeys();const lang=DB.language;const data=JSON.p
  const r=await onCall({action:'replace',data:JSON.stringify(data)},300000);ONL.ver=r.ver;ONL.shadow=snapHashes();persistShadow();return r}
 async function onCycle(){if(!onlineOn()||!DB)return;if(ONL.busy){ONL.again=true;return}ONL.busy=true;let changed=false;
  const push=async()=>{const ops=diffOps();ONL.pendingN=ops.length;
-  if(ops.length>4000){onStatus('sync');await uploadAll()}
-  else if(ops.length){onStatus('sync');for(let i=0;i<ops.length;i+=1500){const chunk=ops.slice(i,i+1500);const r=await onCall({action:'commit',ops:chunk.map(o=>o.n?{c:o.c,k:o.k,v:o.v,n:1}:{c:o.c,k:o.k,v:o.v})},120000);chunk.forEach(shadowSet);
+  /* never replace the whole server copy automatically (it could wipe records added on other devices) — always send the changes in parts */
+  if(ops.length){onStatus('sync');for(let i=0;i<ops.length;i+=1500){const chunk=ops.slice(i,i+1500);const r=await onCall({action:'commit',ops:chunk.map(o=>o.n?{c:o.c,k:o.k,v:o.v,n:1}:(o.why?{c:o.c,k:o.k,v:o.v,why:o.why}:{c:o.c,k:o.k,v:o.v}))},120000);chunk.forEach(shadowSet);
     (r.idmap||[]).forEach(m=>{const rec=(DB[m.c]||[]).find(x=>x._k===m.k);if(rec){rec[m.field]=m.to;shadowSet({c:m.c,k:m.k,v:rec});changed=true;notify(L(`Number ${m.from} was already used by another user — saved as ${m.to}`,`الرقم ${m.from} استخدمه مستخدم آخر — تم الحفظ برقم ${m.to}`),'info')}});
     if(r.online)ONL.online=r.online}ONL.pendingN=0;persistShadow()}
   onSeenSnap();if(ONL.missing){const n=ONL.missing;ONL.missing=0;console.warn('online: '+n+' record(s) missing in this copy — reloading from the server');await fullLoad();changed=true}};
@@ -2408,7 +2412,7 @@ async function onCycle(){if(!onlineOn()||!DB)return;if(ONL.busy){ONL.again=true;
   /* 1) bring in the other devices' changes FIRST, so an old copy here never overwrites a newer change made elsewhere */
   const p=await onCall({action:'poll',since:ONL.ver},60000);if(p.online)ONL.online=p.online;ONL.srv=p.server||'old';
   if(p.reset){await push();await fullLoad();changed=true}
-  else{(p.batches||[]).forEach(b=>{b.ops.forEach(o=>{if(remoteIsNew(o)){if(!mergeRemote(o))applyRemoteOp(o);changed=true}})});ONL.ver=p.ver;persistShadow();
+  else{(p.batches||[]).forEach(b=>{b.ops.forEach(o=>{if(remoteIsNew(o)){if(o.v===null&&!o.why&&onHasLocal(o)){onRefuseDelete(o,b);return}if(o.v===null&&o.c==='employees'&&onHasLocal(o)&&typeof log==='function')log('Employee deleted on another device',`#${o.k} — ${b.user||''} (${b.client||''})`,'employees');if(!mergeRemote(o))applyRemoteOp(o);changed=true}})});ONL.ver=p.ver;persistShadow();
    /* 2) then send what changed here */
    await push()}
   if(changed)await persist();ONL.lastOk=Date.now();onStatus('ok')}
