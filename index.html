@@ -59,7 +59,7 @@ button,input,select,textarea{font-family:inherit;font-size:14px}
 .fld{display:flex;flex-direction:column;gap:4px}.fld.full{grid-column:1/-1}
 .fld label{font-weight:700;color:#334155;font-size:12.5px}
 .fld label .req{color:var(--bad)}
-input:not([type]),input[type=search],input[type=text],input[type=number],input[type=date],input[type=time],input[type=password],input[type=email],input[type=tel],select,textarea{width:100%;padding:9px 11px;border:1px solid #CBD5E1;border-radius:9px;background:#fff;color:var(--txt);outline:none}
+input:not([type]),input[type=search],input[type=month],input[type=week],input[type=datetime-local],input[type=text],input[type=number],input[type=date],input[type=time],input[type=password],input[type=email],input[type=tel],select,textarea{width:100%;padding:9px 11px;border:1px solid #CBD5E1;border-radius:9px;background:#fff;color:var(--txt);outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
 input[readonly]{background:#F8FAFC;color:#475569}
 textarea{min-height:72px;resize:vertical}
@@ -2345,7 +2345,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793091109';
+const BUILD_ID='1793091531';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
