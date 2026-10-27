@@ -569,29 +569,52 @@ function approvedLeaveOn(empId,d){d=parseD(d);if(!d)return null;for(const l of D
 function attDayDone(a){const d=parseD(a.date);if(!d)return false;const t=today();if(d<addDays(t,-1))return true;if(d>=t)return false;
  const ci=timeMin(a.check_in);return !(new Date().getHours()<12&&ci!=null&&ci>=16*60&&!String(a.check_out||'').trim())}
 function attStatus(a){const ci=String(a.check_in||'').trim(),co=String(a.check_out||'').trim();if(ci||co){if(!(ci&&co)&&attDayDone(a))return 'Missing';return 'Present'}const lt=approvedLeaveOn(a.emp_id,a.date);return lt?(LEAVE_DISPLAY[lt]||lt):a.status}
-function leaveSplit(empId){let dayoff=0,annTot=0,annDO=0;const seen=new Set();
- for(const l of DB.leaves){if(String(l.emp_id)!==String(empId)||seen.has(l.leave_id))continue;seen.add(l.leave_id);if(!APPROVED.includes(l.status))continue;const d=leaveDays(l);if(d<=0)continue;
-  if(l.leave_type==='Day Off')dayoff+=d;else if(l.leave_type==='Annual'){annTot+=d;annDO+=Math.floor(d/ANNUAL_LEAVE_DAYS_PER_DAYOFF)}}
+/* ── service year: every employee's balance runs from his hire-date anniversary to the next one ── */
+function svcYear(e,at){at=parseD(at)||today();const hd=parseD(e&&e.hire_date);let ys;
+ if(!hd)ys=new Date(at.getFullYear(),0,1);else{ys=new Date(at.getFullYear(),hd.getMonth(),hd.getDate());if(ys>at)ys=new Date(at.getFullYear()-1,hd.getMonth(),hd.getDate());if(ys<hd)ys=new Date(hd)}
+ const ye=new Date(ys.getFullYear()+1,ys.getMonth(),ys.getDate());return [ys,ye]}
+/* per-employee index of approved leaves and Day Off records (rebuilt when the data changes) */
+let _lvIx={sig:'',lv:{},dof:{}};
+let _lvVer=0;const lvBump=()=>{_lvVer++};
+/* rebuilt once per screen / action: reused inside one render, thrown away after it or after any save */
+function lvIndex(){const sig=_lvVer+'|'+DB.attendance.length+'|'+DB.leaves.length;if(_lvIx.sig===sig&&_lvIx.live)return _lvIx;
+ const lv={},dof={};for(const l of DB.leaves){if(!APPROVED.includes(l.status))continue;const s=parseD(l.start_date),e=parseD(l.end_date);if(!s||!e)continue;(lv[String(l.emp_id)]=lv[String(l.emp_id)]||[]).push({id:l.leave_id,t:l.leave_type,s,e})}
+ for(const a of DB.attendance){if(a.status!=='Day Off'||a.auto===0||String(a.check_in||'').trim()||String(a.check_out||'').trim())continue;const d=parseD(a.date);if(!d)continue;const id=String(a.emp_id);
+  if((lv[id]||[]).some(x=>d>=x.s&&d<=x.e))continue;(dof[id]=dof[id]||[]).push(d.getTime())}
+ _lvIx={sig,lv,dof,live:true};Promise.resolve().then(()=>{_lvIx.live=false});return _lvIx}
+/* leaves used inside [from, to) — Day Off leaves, Annual (every 7 annual days include 1 Day Off) */
+function leaveSplit(empId,from,to){let dayoff=0,annTot=0,annDO=0;const ix=lvIndex();
+ for(const l of ix.lv[String(empId)]||[]){if(l.t!=='Day Off'&&l.t!=='Annual')continue;let s=l.s,e=l.e;if(from&&s<from)s=from;if(to){const lim=addDays(to,-1);if(e>lim)e=lim}const d=e>=s?daysBetween(s,e)+1:0;if(d<=0)continue;
+  if(l.t==='Day Off')dayoff+=d;else{annTot+=d;annDO+=Math.floor(d/ANNUAL_LEAVE_DAYS_PER_DAYOFF)}}
  return {dayoff,annTot,annDO,annAnn:annTot-annDO}}
+/* Day Off days recorded in attendance (auto-close / typed) inside [from, to) */
+function dofRecDays(empId,from,to){const L0=from?from.getTime():-Infinity,L1=to?to.getTime():Infinity;return (lvIndex().dof[String(empId)]||[]).filter(t=>t>=L0&&t<L1).length}
 function typeInfo(t){if(t==='10years'||t==='50years')return {label:L('10 yrs / 50+ age','10 سنوات / 50+ سنة'),ann:30,full:97};if(t==='5%')return {label:L('Disability (5%)','ذوي الهمم 5%'),ann:45,full:112};return {label:L('Regular Employee','موظف منتظم'),ann:21,full:88}}
 /* days the employee was away (approved "Suspension") up to a date — they do not count as service */
 function suspDaysUpTo(id,at){let n=0;at=parseD(at)||today();for(const l of DB.leaves){if(String(l.emp_id)!==String(id)||l.leave_type!=='Suspension'||!APPROVED.includes(l.status))continue;const s=parseD(l.start_date);let e=parseD(l.end_date);if(!s||!e||s>at)continue;if(e>at)e=at;n+=Math.max(0,daysBetween(s,e)+1)}return n}
 const suspMonths=(id,at)=>Math.floor(suspDaysUpTo(id,at)/30);
-function leaveBalance(e){const hd=parseD(e.hire_date);const mw=hd?Math.max(0,monthsBetween(hd,today())-suspMonths(e.emp_id)):0;const ti=typeInfo(e.employee_type);
+/* balance on a date (default today): 52 Day Off (probation 4 a month) + annual + 15 holidays per SERVICE YEAR;
+   every Day Off in the attendance and every approved Day Off / Annual leave of that service year is taken off */
+function leaveBalance(e,at){const now=parseD(at)||today();const hd=parseD(e.hire_date);const mw=hd?Math.max(0,monthsBetween(hd,now)-suspMonths(e.emp_id,now)):0;const ti=typeInfo(e.employee_type);
  let hol=15,dof=52,ann,notes;if(mw<6){ann=0;dof=mw*4;notes=L(`Probation — Day Off only: ${dof}`,`فترة اختبار — راحات فقط: ${dof}`)}else if(mw<12){ann=r2((mw-5)*ti.ann/12);notes=L(`Prorated — ${mw-5} months`,`نسبي — ${mw-5} شهر`)}else{ann=ti.ann;notes=L('Full annual balance','رصيد سنوي كامل')}
  let svc=fmtService(mw);if(e.svc_override!=null&&e.svc_override!=='')svc=String(e.svc_override);if(e.hol_override!=null&&e.hol_override!=='')hol=num(e.hol_override);if(e.ann_override!=null&&e.ann_override!=='')ann=num(e.ann_override);
- const sp=leaveSplit(e.emp_id);let taken=0,base=dof;if(e.dof_override!=null&&e.dof_override!==''){const rem=num(e.dof_override);taken=Math.max(0,r2(52-Math.min(rem,52)));base=52}
- const doAll=r2(taken+sp.dayoff+sp.annDO);const over=Math.max(0,r2(doAll-base));const doCons=r2(doAll-over);   // Day Off used beyond its balance → taken from the annual balance
+ const [ys,ye]=svcYear(e,now);const until=at?now:ye;   /* a balance "on a date" counts what happened before that date */
+ const sp=leaveSplit(e.emp_id,ys,until);const recDO=dofRecDays(e.emp_id,ys,at?now:addDays(today(),1));const base=dof;
+ const doAll=r2(recDO+sp.dayoff+sp.annDO);const over=Math.max(0,r2(doAll-base));const doCons=r2(doAll-over);   // Day Off used beyond its balance → taken from the annual balance
  const annCons=r2(sp.annAnn+over),used=r2(doCons+annCons),total=r2(hol+base+ann),adj=num(e.leave_balance_adjustment);
  if(over>0)notes+=' — '+L(`Day Off finished: ${over} day(s) deducted from annual`,`انتهى رصيد الراحات: خُصم ${over} يوم من السنوي`);
- return {mw,svc,type:ti.label,hol,dofBase:base,dof:Math.max(0,r2(base-doCons)),ann:Math.max(0,r2(ann-annCons)),annFull:ann,over,total,used,adj,remaining:Math.max(0,r2(total+adj-used)),notes,probation:mw<6}}
+ return {mw,svc,type:ti.label,hol,dofBase:base,dof:Math.max(0,r2(base-doCons)),dofUsed:doAll,ys,ye,ann:Math.max(0,r2(ann-annCons)),annFull:ann,over,total,used,adj,remaining:Math.max(0,r2(total+adj-used)),notes,probation:mw<6}}
 function annualEntitlement(e,at){const hd=parseD(e.hire_date)||today();const mw=Math.max(0,monthsBetween(hd,at||today())-suspMonths(e.emp_id,at));const ti=typeInfo(e.employee_type);if(mw<6)return 0;if(mw<12)return r2((mw-5)*ti.ann/12);return ti.ann}
 function usedAnnualDayOff(id){return DB.leaves.filter(l=>String(l.emp_id)===String(id)&&APPROVED.includes(l.status)&&['Annual','Day Off'].includes(l.leave_type)).reduce((s,l)=>s+leaveDays(l),0)}
-function applyDayOff(d,only){d=parseD(d);if(!d)return [];const ds=dmy(d);const out=[];
+/* a Day Off record that took 1 day from the Day Off balance (auto-close / typed by hand) — not one coming from an approved leave */
+function dofCharged(a,skipLeave){if(!a||a.status!=='Day Off'||String(a.check_in||'').trim()||String(a.check_out||'').trim()||a.auto===0)return false;
+ const d=parseD(a.date);if(!d)return false;return !DB.leaves.some(l=>l.leave_id!==skipLeave&&String(l.emp_id)===String(a.emp_id)&&APPROVED.includes(l.status)&&(()=>{const s=parseD(l.start_date),e=parseD(l.end_date);return s&&e&&d>=s&&d<=e})())}
+function dofAdj(empId,n){lvBump();const e=getEmp(empId);if(!e||!n)return;const cur=e.dof_override!=null&&e.dof_override!==''?num(e.dof_override):52;e.dof_override=r2(cur+n)}
+function applyDayOff(d,only){lvBump();d=parseD(d);if(!d)return [];const ds=dmy(d);const out=[];
  for(const e of (only||activeEmps())){if(DB.attendance.some(a=>String(a.emp_id)===String(e.emp_id)&&fmtD(a.date)===ds))continue;const lt=approvedLeaveOn(e.emp_id,d);
   if(lt){DB.attendance.push({emp_id:e.emp_id,date:ds,check_in:'',check_out:'',status:lt});continue}
   if(typeof phOn==='function'&&phOn(d)){DB.attendance.push({emp_id:e.emp_id,date:ds,check_in:'',check_out:'',status:'Public Holiday'});continue}   // official holiday: not a Day Off, nothing deducted
-  DB.attendance.push({emp_id:e.emp_id,date:ds,check_in:'',check_out:'',status:'Day Off'});const cur=e.dof_override!=null&&e.dof_override!==''?num(e.dof_override):52;e.dof_override=r2(cur-1);out.push(e.name)}
+  DB.attendance.push({emp_id:e.emp_id,date:ds,check_in:'',check_out:'',status:'Day Off',auto:1});const cur=e.dof_override!=null&&e.dof_override!==''?num(e.dof_override):52;e.dof_override=r2(cur-1);out.push(e.name)}
  return out}
 
 /* ═══════════════════ Shell, router, login ═══════════════════ */
@@ -923,11 +946,11 @@ function lbEdit(e){if(!e||!canApprove())return head('❓',L('Not found','غير 
  +`<div class="wrap"><form id="frm" class="card" onsubmit="return false"><div class="sec">📅 ${L('Leave Balance','رصيد الإجازات')}</div><div class="grid">
  ${fld(L('Employee Type','نوع الموظف'),sel('employee_type',EMP_TYPES,e.employee_type))}${fld(L('Hire Date','تاريخ التعيين'),dinp('hire_date',e.hire_date))}
  ${fld(L('Service Duration (override)','مدة الخدمة (تعديل)'),inp('svc',e.svc_override??'','text','placeholder="'+esc(b.svc)+'"'))}${fld(L('Official Holidays','الأعياد الرسمية'),inp('hol',e.hol_override??'','number','placeholder="15"'))}
- ${fld(L('Day Off remaining (override)','رصيد الراحات (تعديل)'),inp('dof',e.dof_override??'','number','step="any" placeholder="52"'))}${fld(L('Annual Balance (override)','الرصيد السنوي (تعديل)'),inp('ann',e.ann_override??'','number','step="any" placeholder="'+b.annFull+'"'))}
+ ${fld(L('Day Off remaining','رصيد الراحات'),`<div style="padding:9px 2px;font-weight:700">${b.dof} / ${b.dofBase} <small class="muted" style="font-weight:400">— ${L('used','مستخدم')} ${b.dofUsed} ${L('since','من')} ${dmy(b.ys)} (${L('counted from the attendance and the approved leaves; use Manual Adjustment to correct','محسوب من الحضور والإجازات المعتمدة؛ للتصحيح استخدم التعديل اليدوي')})</small></div>`)}${fld(L('Annual Balance (override)','الرصيد السنوي (تعديل)'),inp('ann',e.ann_override??'','number','step="any" placeholder="'+b.annFull+'"'))}
  ${fld(L('Manual Adjustment (+/- days)','تعديل يدوي (+/- أيام)'),inp('adj',e.leave_balance_adjustment||0,'number','step="any"'))}</div>
  <div class="mt kv"><b>${L('Total','الإجمالي')}</b><span>${b.total}</span><b>${L('Used','المستخدم')}</b><span>${b.used}</span><b>${L('Remaining','المتبقي')}</b><span><b>${b.remaining}</b></span></div><p class="muted">${L('Leave override fields empty to use automatic calculation.','اترك حقول التعديل فارغة لاستخدام الحساب التلقائي.')}</p>
  <div class="actions">${btn('💾 '+L('Save Changes','حفظ التغييرات'),`saveLB(${q(e.emp_id)})`,'g')}${btn('❌ '+L('Cancel','إلغاء'),"go('leaves/balance')",'r')}</div></form></div>`}
-function saveLB(id){const e=getEmp(id),f=F();const ov=(k)=>{const v=fv(f,k);return v===''?null:num(v)};e.employee_type=fv(f,'employee_type');if(e.employee_type==='5%')e.emp_class='5%';else if(e.emp_class==='5%')e.emp_class='Regular';e.hire_date=fv(f,'hire_date')||e.hire_date;e.svc_override=fv(f,'svc')||null;e.hol_override=ov('hol');e.dof_override=ov('dof');e.ann_override=ov('ann');e.leave_balance_adjustment=num(fv(f,'adj'));
+function saveLB(id){const e=getEmp(id),f=F();const ov=(k)=>{const v=fv(f,k);return v===''?null:num(v)};e.employee_type=fv(f,'employee_type');if(e.employee_type==='5%')e.emp_class='5%';else if(e.emp_class==='5%')e.emp_class='Regular';e.hire_date=fv(f,'hire_date')||e.hire_date;e.svc_override=fv(f,'svc')||null;e.hol_override=ov('hol');e.ann_override=ov('ann');e.leave_balance_adjustment=num(fv(f,'adj'));
  log('Leave balance updated',id,'leave');saveDB();setFlash(L('Leave balance updated','تم تحديث الرصيد'));go('leaves/balance')}
 
 /* ═══════════════════ Attendance ═══════════════════ */
@@ -965,8 +988,8 @@ function saveAtt(i){const f=F();const e=getEmp(fv(f,'emp_id'));if(!e){notify(L('
  if(rec.check_in||rec.check_out)rec.manual=true;   /* typed by HR → hours counted up to 24 h */
  /* the list may have changed since the form opened (sync, fingerprint pull): find the same record again */
  if(i!=null&&S.tmp.attEdit){const E=S.tmp.attEdit,cur=DB.attendance[i];const same=x=>x&&(E.k?x._k===E.k:(String(x.emp_id)===E.emp&&fmtD(x.date)===E.date));if(!same(cur)){const j=DB.attendance.findIndex(same);if(j<0){notify(L('This record changed meanwhile — open it again','السجل ده اتغيّر في الوقت ده — افتحه تاني'),'err');return}i=j}}
- if(i!=null){const old=DB.attendance[i];if(old.status==='Day Off'&&(rec.check_in||rec.check_out)){rec.status='Present';e.dof_override=r2((e.dof_override!=null&&e.dof_override!==''?num(e.dof_override):52)+1)}DB.attendance[i]=Object.assign({},old,rec)}
- else{const dup=DB.attendance.findIndex(a=>String(a.emp_id)===String(e.emp_id)&&fmtD(a.date)===d);if(dup>=0){notify(L('A record already exists for this employee on this date — edit it instead.','يوجد سجل لهذا الموظف في نفس اليوم — قم بتعديله.'),'err');return}DB.attendance.push(rec)}
+ if(i!=null){const old=DB.attendance[i];if(old.status==='Day Off'&&(rec.check_in||rec.check_out))rec.status='Present';const was=dofCharged(old);const nw=Object.assign({},old,rec);if(nw.status==='Day Off'&&!was)nw.auto=1;const now=dofCharged(nw);if(was&&!now)dofAdj(e.emp_id,1);else if(!was&&now)dofAdj(e.emp_id,-1);DB.attendance[i]=nw}
+ else{const dup=DB.attendance.findIndex(a=>String(a.emp_id)===String(e.emp_id)&&fmtD(a.date)===d);if(dup>=0){notify(L('A record already exists for this employee on this date — edit it instead.','يوجد سجل لهذا الموظف في نفس اليوم — قم بتعديله.'),'err');return}if(rec.status==='Day Off'&&!rec.check_in&&!rec.check_out){rec.auto=1;if(dofCharged(rec))dofAdj(e.emp_id,-1)}DB.attendance.push(rec)}
  log(i!=null?'Edit attendance':'Add attendance',`emp #${e.emp_id} ${d}`,'attendance');saveDB();setFlash(L('Attendance saved','تم حفظ الحضور'));go('attendance')}
 function delAtt(i){const a=DB.attendance[i];if(!a)return;DB.attendance.splice(i,1);log('Delete attendance',`emp #${a.emp_id} on ${a.date}`,'attendance');saveDB();notify(L('Deleted','تم الحذف'));render()}
 function attImportPage(){return head('📥',L('Import Fingerprint / Attendance File','استيراد ملف البصمة / الحضور'),L('Replaces direct ZKTeco TCP sync (browsers cannot open device sockets)','بديل المزامنة المباشرة مع ZKTeco (المتصفح لا يستطيع الاتصال بالجهاز مباشرة)'),'#6366F1',btn('← '+L('Back','رجوع'),"go('attendance')",'ghost'))
@@ -1281,7 +1304,19 @@ function reportPage(type){const R=REPORTS.find(r=>r[0]===type);if(!R)return head
  const fl=(S.tmp.rpF||{})[type]||{};const d=rpData(type,fl);const cols=d.cols.map(c=>L(c,RCOL_AR[c]||c));const title=L(R[2],R[3]);
  return head(R[1],title,`${d.rows.length} ${L('records','سجل')}`,'#8C3AED',btn('← '+L('Back','رجوع'),"go('reports')",'ghost')+stdBtns(title,'trp'))
  +`<div class="wrap"><form id="frm" class="filters" onsubmit="return false">${fld(L('From','من'),dinp('from',fl.from))}${fld(L('To','إلى'),dinp('to',fl.to))}${fld(L('Department','القسم'),sel('dep',deptOpts(),fl.dep,L('All','الكل')))}<div>${btn('🔍 '+L('Apply','تطبيق'),`rpApply('${type}')`,'p')} ${btn('✕',`(S.tmp.rpF||{})['${type}']={};render()`,'d')}</div></form>
- ${searchBox('trp')}${table(cols,d.rows.map(r=>({c:r.map(esc)})),{id:'trp'})}</div>`}
+ ${type==='activity'&&isSuper()?actDelBar(fl):''}${searchBox('trp')}${table(cols,d.rows.map(r=>({c:r.map(esc)})),{id:'trp'})}</div>`}
+/* Activity Log: admin can clear it (the chosen period, older than 30 days, or everything) */
+function actMatch(a,fl){const d=parseD(String(a.timestamp||'').slice(0,10));const fr=parseD(fl.from),to=parseD(fl.to);if(!fr&&!to)return true;if(!d)return false;return (!fr||d>=fr)&&(!to||d<=to)}
+function actDelBar(fl){const nF=DB.activity_log.filter(a=>actMatch(a,fl)).length,lim=addDays(today(),-30),nOld=DB.activity_log.filter(a=>{const d=parseD(String(a.timestamp||'').slice(0,10));return d&&d<lim}).length,has=fl.from||fl.to;
+ return `<div class="card" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:10px 14px"><b>🗑️ ${L('Clear the log','مسح السجل')}:</b>
+  ${has?dbtn(L(`Delete the chosen period (${nF})`,`امسح الفترة المختارة (${nF})`),"actDelete('filtered')",'sm r'):''}
+  ${dbtn(L(`Delete older than 30 days (${nOld})`,`امسح الأقدم من 30 يوم (${nOld})`),"actDelete('old')",'sm r')}
+  ${dbtn(L(`Delete everything (${DB.activity_log.length})`,`امسح الكل (${DB.activity_log.length})`),"actDelete('all')",'sm r')}
+  <span class="muted" style="font-size:12px">${L('Click twice to confirm. To delete a period, choose From / To above and press Apply first.','اضغط مرتين للتأكيد. لمسح فترة معيّنة اختار «من / إلى» فوق واضغط تطبيق الأول.')}</span></div>`}
+function actDelete(mode){if(!isSuper())return;const fl=(S.tmp.rpF||{}).activity||{};const lim=addDays(today(),-30);const before=DB.activity_log.length;
+ const del=a=>mode==='all'?true:mode==='old'?(()=>{const d=parseD(String(a.timestamp||'').slice(0,10));return !!(d&&d<lim)})():actMatch(a,fl);
+ DB.activity_log=DB.activity_log.filter(a=>!del(a));const n=before-DB.activity_log.length;
+ log('Activity log cleared',`${n} record(s) deleted (${mode==='all'?'all':mode==='old'?'older than 30 days':(fl.from||'…')+' → '+(fl.to||'…')})`,'security');saveDB();notify(L(`${n} record(s) deleted`,`اتمسح ${n} سجل`));render()}
 function rpApply(t){S.tmp.rpF=S.tmp.rpF||{};const f=F();S.tmp.rpF[t]={from:fv(f,'from'),to:fv(f,'to'),dep:fv(f,'dep')};render()}
 
 /* ═══════════════════ Settings ═══════════════════ */
@@ -1952,9 +1987,7 @@ function asCount(row,c){return row.filter(x=>x===c).length}
 /* opening balance: typed by hand, else last month's NB, else the current leave balance at the start of the month */
 function asOB(e,y,m,depth){depth=depth||0;const st=(DB.att_sheet||{})[asKey(y,m)]||{};const r=st[e.emp_id];if(r&&r.ob!=null&&r.ob!=='')return num(r.ob);
  const pm=m===1?12:m-1,py=m===1?y-1:y;const prev=(DB.att_sheet||{})[asKey(py,pm)];if(depth<24&&prev&&prev[e.emp_id])return asNB(e,py,pm,depth+1);
- const t=today();let back=0;const ps0=periodBounds(m,y)[0];if(ps0<=t){const codes=asCodesFor(y,m,e);back=asCount(codes,'V')+asCount(codes,'O')}
- const phc=(typeof phCreditRange==='function'&&ps0<=t)?phCreditRange(e,...periodBounds(m,y)).credit:0;
- return r2(leaveBalance(e).remaining+back-phc)}
+ const ps0=periodBounds(m,y)[0];return r2(leaveBalance(e,ps0).remaining)}   /* balance on the 1st day of the payroll month (from the attendance / leaves before it) */
 function asNB(e,y,m,depth){const codes=asCodesFor(y,m,e);const ob=asOB(e,y,m,depth);const st=(DB.att_sheet||{})[asKey(y,m)]||{};const cr=num((st[e.emp_id]||{}).cr);return r2(ob-asCount(codes,'V')-asCount(codes,'O')+cr)}
 /* freeze the opening balances of the current month once, so next month's carry-over never moves */
 function asFreeze(y,m,emps){const [cm,cy]=curPeriod();if(y!==cy||m!==cm)return;const st=asStore(y,m);let ch=false;
@@ -2062,7 +2095,7 @@ function phCreditYear(e){const y=today().getFullYear();return phCreditRange(e,ne
 
 /* leave balance: add the earned days */
 const _lbPH=leaveBalance;
-leaveBalance=function(e){const b=_lbPH(e);const c=phCreditYear(e);b.phc=c.credit;b.phd=c.days;if(c.credit){b.remaining=r2(b.remaining+c.credit);b.notes+=' — '+L(`+${c.credit} for working ${c.days} official holiday(s)`,`+${c.credit} يوم لعمله في ${c.days} يوم إجازة رسمية`)}return b};
+leaveBalance=function(e,at){const b=_lbPH(e,at);const now=parseD(at)||today();const c=phCreditRange(e,b.ys||new Date(now.getFullYear(),0,1),at?addDays(now,-1):addDays(b.ye||new Date(now.getFullYear()+1,0,1),-1));b.phc=c.credit;b.phd=c.days;if(c.credit){b.remaining=r2(b.remaining+c.credit);b.notes+=' — '+L(`+${c.credit} for working ${c.days} official holiday(s)`,`+${c.credit} يوم لعمله في ${c.days} يوم إجازة رسمية`)}return b};
 
 /* monthly sheet: holiday credit goes to CR automatically (manual CR still adds on top) */
 const _asDataPH=asData;
@@ -2273,9 +2306,35 @@ function suspFix(){if(!DB||!DB.leaves)return 0;let n=0;const ls=DB.leaves.filter
   a.status='Suspension';n++}
  return n}
 function suspRun(){const n=suspFix();if(n){log('Work suspension',`${n} day(s) turned from Day Off/Absent into Suspension — Day Off balance given back`,'leave');saveDB()}return n}
+/* a leave approved for days that the daily auto-close already recorded as Day Off: the Day Off is given back
+   (the leave itself is what counts) and the day takes the leave type — so one day is never deducted twice */
+function leaveFixDays(l){if(!l||!APPROVED.includes(l.status))return 0;const s=parseD(l.start_date),en=parseD(l.end_date);if(!s||!en)return 0;let n=0;
+ for(const a of DB.attendance){if(String(a.emp_id)!==String(l.emp_id))continue;const d=parseD(a.date);if(!d||d<s||d>en)continue;if(!dofCharged(a,l.leave_id))continue;
+  dofAdj(a.emp_id,1);a.auto=0;if(l.leave_type!=='Day Off')a.status=l.leave_type;n++}
+ return n}
+{const _ap0=approveLeave;approveLeave=function(id,silent){const before=(DB.leaves.find(x=>x.leave_id===id)||{}).status;const r=_ap0.apply(this,arguments);const l=DB.leaves.find(x=>x.leave_id===id);if(l&&before!=='Approved'&&l.status==='Approved'){const n=leaveFixDays(l);if(n){log('Leave over auto Day Off',`${l.leave_id} emp #${l.emp_id}: ${n} auto Day Off day(s) given back`,'leave');saveDB()}}return r}}
 {const _ap=approveLeave;approveLeave=function(id,silent){const r=_ap.apply(this,arguments);const l=DB.leaves.find(x=>x.leave_id===id);if(l&&l.leave_type==='Suspension'){const n=suspRun();if(n&&!silent)notify(L(`${n} Day Off record(s) inside the suspension were returned to the balance`,`${n} يوم راحة كانوا متسجلين في فترة الانقطاع اترجعوا للرصيد`),'info')}return r}}
 {const _sv=saveLeave;saveLeave=function(old){const r=_sv.apply(this,arguments);suspRun();return r}}
 setInterval(()=>{if(S.user&&DB&&isAdmin())suspRun()},60000);
+/* an approved leave that had absorbed auto Day Offs is rejected / deleted → those past days go back to Day Off (charged again) */
+function leaveUnfix(l){if(!l)return 0;const s=parseD(l.start_date),en=parseD(l.end_date);if(!s||!en)return 0;let n=0;const t=today();
+ for(const a of DB.attendance){if(String(a.emp_id)!==String(l.emp_id)||a.auto!==0)continue;if(String(a.check_in||'').trim()||String(a.check_out||'').trim())continue;const d=parseD(a.date);if(!d||d<s||d>en||d>=t)continue;
+  if(a.status!==l.leave_type&&!(l.leave_type==='Day Off'&&a.status==='Day Off'))continue;a.status='Day Off';a.auto=1;if(dofCharged(a,l.leave_id)){dofAdj(a.emp_id,-1);n++}}
+ return n}
+{const _rj=rejectLeave;rejectLeave=function(id){const l=DB.leaves.find(x=>x.leave_id===id);const was=l&&APPROVED.includes(l.status)?Object.assign({},l):null;const r=_rj.apply(this,arguments);if(was){if(leaveUnfix(was))saveDB()}return r}}
+{const _dl=delLeave;delLeave=function(id){const l=DB.leaves.find(x=>x.leave_id===id);const was=l&&APPROVED.includes(l.status)?Object.assign({},l):null;const r=_dl.apply(this,arguments);if(was){if(leaveUnfix(was))saveDB()}return r}}
+/* once: the monthly sheet opening balances that were frozen with the OLD Day Off counter are recalculated
+   (opening balances typed by hand — found in the activity log — are kept) */
+function dofV2Migrate(){if(!DB||!S.user||!isAdmin()||(DB.settings||{}).dof_calc_v2)return;const manual=new Set();(DB.activity_log||[]).forEach(a=>{if(a.action==='Attendance sheet'){const m=String(a.details||'').match(/^(\S+)\s+(\S+)\s+ob=/);if(m)manual.add(m[1]+'|'+m[2])}});
+ let n=0;for(const k in (DB.att_sheet||{})){const st=DB.att_sheet[k];for(const id in st){if(st[id]&&st[id].ob!=null&&!manual.has(k+'|'+id)){delete st[id].ob;n++}}}
+ DB.settings.dof_calc_v2=nowStamp();log('Day Off balance recalculated',`Day Off now counted from attendance per service year — ${n} frozen sheet opening balance(s) recalculated`,'leave');saveDB();if(!uiBusy())render()}
+setTimeout(dofV2Migrate,6000);setInterval(dofV2Migrate,60000);
+/* the balance index is refreshed after every save and every change coming from another device */
+setTimeout(()=>{const _sv=saveDB;saveDB=function(){lvBump();return _sv.apply(this,arguments)};if(typeof onRemoteChanged==='function'){const _rc=onRemoteChanged;onRemoteChanged=function(){lvBump();return _rc.apply(this,arguments)}}},0);   /* after the online client has installed its own saveDB */
+{if(typeof zkMerge==='function'){const _zm=zkMerge;zkMerge=function(){lvBump();const r=_zm.apply(this,arguments);lvBump();return r}}}
+{const _ap1=approveLeave;approveLeave=function(){lvBump();const r=_ap1.apply(this,arguments);lvBump();return r}}
+{const _rj1=rejectLeave;rejectLeave=function(){lvBump();const r=_rj1.apply(this,arguments);lvBump();return r}}
+setInterval(lvBump,3000);
 
 /* ═══════════════════ ONLINE MULTI-USER ENGINE ═══════════════════
    All users work at the same time. Every change is detected per record,
@@ -2286,7 +2345,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793088072';
+const BUILD_ID='1793091109';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
