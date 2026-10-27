@@ -461,7 +461,8 @@ const dbtn=(label,fnCall,cls)=>btn(label,`arm(this,()=>{${fnCall}})`,cls||'r');
 function head(icon,title,sub,color,btns){return `<div class="phead" style="--c:${color||'#1E3A5F'}"><div class="pt"><span class="pi">${icon}</span><div><h1>${title}</h1><p>${sub||''}</p></div></div><div class="pbtns">${btns||''}</div></div>`}
 function badge(s,cls){return `<span class="badge ${esc(cls||s)}">${esc(tv(s))}</span>`}
 let TBLN=0;
-function table(cols,rows,opt){opt=opt||{};const id=opt.id||('t'+(++TBLN));const qv=String((S.srch||{})[id]||'').trim().toLowerCase();const qEx=qv?exactMode(qv,rows.map(r=>r.id)):false;
+const CODE_COL=/^(code|emp\.? ?id|employee (code|id)|clock ?no|cl\.?no|الكود|كود|كود الموظف|رقم البصمة|رقم الموظف)$/i;
+function table(cols,rows,opt){opt=opt||{};const id=opt.id||('t'+(++TBLN));let ci=cols.findIndex(c=>CODE_COL.test(stripTags(String(c)).trim()));if(ci<0){const j=cols.findIndex(c=>/^(id|الرقم)$/i.test(stripTags(String(c)).trim()));if(j>=0&&rows.length&&rows.filter(r=>r&&r.c&&/^\d+$/.test(stripTags(String(r.c[j]??'')).trim())).length>=rows.length*0.8)ci=j}   /* a plain "ID" column counts only when it holds employee numbers */if(ci>=0)rows.forEach(r=>{if(r&&r.id==null&&r.c&&r.c[ci]!=null&&!r.span)r.id=stripTags(String(r.c[ci])).trim()});const qv=String((S.srch||{})[id]||'').trim().toLowerCase();const qEx=qv?exactMode(qv,rows.map(r=>r.id)):false;
  return `<div class="tbl-wrap"><table class="tbl ${opt.cards===false?'':'cards'}" id="${id}"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.map(r=>{const ds=String(r.s!=null?r.s:stripTags(r.c.join(' '))).toLowerCase();const hid=qv&&!rowMatch(qv,ds,r.id,qEx);return `<tr class="${r.cls||''}" data-s="${esc(ds)}"${r.id!=null?` data-id="${esc(String(r.id))}"`:''}${hid?' style="display:none"':''}>${r.c.map((c,i)=>`<td data-l="${esc(stripTags(cols[i]||''))}" ${r.span&&i===0?`colspan="${r.span}"`:''}>${c}</td>`).join('')}</tr>`}).join(''):`<tr><td colspan="${cols.length}" class="empty">${L('No records found','لا توجد سجلات')}</td></tr>`}</tbody></table></div>`}
 function searchBox(tid,ph){const v=S.srch[tid]||'';return `<div class="search"><span>🔍</span><input data-t="${tid}" value="${esc(v)}" placeholder="${esc(ph||L('Search by code, name, department...','ابحث بالكود أو الاسم أو القسم...'))}" oninput="filterTbl(this)"></div>`}
 /* a number alone → that exact employee code only (1 shows code 1, not 10, 21, 100…) */
@@ -619,7 +620,7 @@ function applyDayOff(d,only){lvBump();d=parseD(d);if(!d)return [];const ds=dmy(d
 
 /* ═══════════════════ Shell, router, login ═══════════════════ */
 function shell(content,cur){const navKey=ROUTE_KEY[cur]||cur;
- return `<div class="layout"><aside class="side"><div class="brand"><div class="logo"><img src="${appLogo()}" alt=""></div><div><b>Al-Moudira</b><small>HR System · ${VER}</small></div></div>
+ return `<div class="layout"><aside class="side"><div class="brand"><div class="logo"><img src="${appLogo()}" alt=""></div><div><b>Al-Moudira</b><small>HR System · ${VER}${typeof BUILD_ID!=='undefined'&&+BUILD_ID?` · ${(d=>pad(d.getDate())+'/'+pad(d.getMonth()+1)+' '+pad(d.getHours())+':'+pad(d.getMinutes()))(new Date(+BUILD_ID*1000))}`:''}</small></div></div>
  <nav>${NAV.filter(n=>allowed(n[0])).map(n=>`<a href="#/${n[5]}" onclick="go('${n[5]}');return false" class="${navKey===n[0]?'on':''}">${n[1]} <span>${L(n[2],n[3])}</span></a>`).join('')}</nav>
  <div class="side-foot"><div class="u">👤 ${esc(S.user)} <span class="muted">· ${esc(L(...(ROLES[S.role]||['',''])))}</span></div><div class="row">
  <button style="background:#334155;color:#fff" onclick="toggleLang()">🌐 ${S.lang==='ar'?'English':'العربية'}</button>
@@ -958,7 +959,7 @@ ROUTES.attendance=(act,id)=>{if(act==='new'||act==='edit')return attForm(act==='
  const fl=S.tmp.attF||{};const fr=parseD(fl.from),to=parseD(fl.to);
  const idx=DB.attendance.map((a,i)=>i).filter(i=>{const d=parseD(DB.attendance[i].date);return (!fr||(d&&d>=fr))&&(!to||(d&&d<=to))});
  idx.sort((x,y)=>{const a=DB.attendance[x],b=DB.attendance[y];return (parseD(b.date)||0)-(parseD(a.date)||0)||String(a.emp_id).localeCompare(String(b.emp_id),undefined,{numeric:true})});
- const aq=String(S.srch.tatt||'').trim().toLowerCase();if(aq){const toks=aq.split(/\s+/);const keep=idx.filter(i=>{const r=DB.attendance[i],e=getEmp(r.emp_id);const h=[r.emp_id,e&&e.name,e&&e.arabic_name,tv(empDept(e)),fmtD(r.date),r.status,attStatus(r),r.source].join(' ').toLowerCase();return toks.every(t=>h.includes(t))});idx.length=0;keep.forEach(i=>idx.push(i))}
+ const aq=String(S.srch.tatt||'').trim().toLowerCase();if(aq&&/^\d+$/.test(aq)&&idx.some(i=>_nz(DB.attendance[i].emp_id)===_nz(aq))){const keep=idx.filter(i=>_nz(DB.attendance[i].emp_id)===_nz(aq));idx.length=0;keep.forEach(i=>idx.push(i))}else if(aq){const toks=aq.split(/\s+/);const keep=idx.filter(i=>{const r=DB.attendance[i],e=getEmp(r.emp_id);const h=[r.emp_id,e&&e.name,e&&e.arabic_name,tv(empDept(e)),fmtD(r.date),r.status,attStatus(r),r.source].join(' ').toLowerCase();return toks.every(t=>h.includes(t))});idx.length=0;keep.forEach(i=>idx.push(i))}
  const shown=idx.slice(0,3000);let totMin=0;
  const rows=shown.map(i=>{const a=DB.attendance[i],e=getEmp(a.emp_id);const m=attDur(a);const m0=!m&&String(a.check_in||'').trim()&&String(a.check_out||'').trim();totMin+=m;const st=attStatus(a);
   return {c:[esc(a.emp_id),esc(e?e.name:'—'),esc(tv(empDept(e))),fmtD(a.date),t12(a.check_in)||'—',t12(a.check_out)||'—',(durStr(m)||(m0?`<span title="${esc(L('Over 18 h between check-in and check-out — open the record and fix it (or tick \'next day\')','أكتر من 18 ساعة بين الدخول والخروج — افتح السجل وصحّحه (أو علّم «اليوم التالي»)'))}" style="color:#B45309">⚠</span>`:'—')),shiftBadge(a,e),lateOnly(a,e),earlyOnly(a,e),badge(st,st==='Present'?'ok':st==='Day Off'?'warn':st==='Absent'||st==='Missing'?'bad':'info'),srcLabel(a.source),`<div class="acts">${btn('✏️',`go('attendance/edit/${i}')`,'sm b')}${isAdmin()?dbtn('🗑️',`delAtt(${i})`,'sm r'):''}</div>`]}});
@@ -2005,7 +2006,7 @@ function asData(y,m){const heads=S.tmp.asMode==='heads'?asHeadMap():null;const d
 const AS_HW='#FFFFFF',AS_HG='#F2F2F2',AS_HC='#CCFFCC';
 function asHead(last,web){const th=(t,bg,cls)=>`<th${cls?` class="${cls}"`:''} style="background:${bg};color:#000;border:1px solid #000">${t}</th>`;
  return `<tr>${th('NO',AS_HW)}${th('CL.NO',AS_HW)}${th('NAME',AS_HW,web?'asnm':'')}${th('OB',AS_HG)}${asPeriod(S.tmp._asY,S.tmp._asM).days.map(dd=>{const h=typeof phOn==='function'?phOn(dd):null;const n=dd.getDate();return h?th(`<span title="${esc(phName(h))}">${n}</span>`,'#92D050'):th(`<span title="${dmy(dd)}">${n}</span>`,AS_HW)}).join('')}${th('CB',AS_HG)}${th('CR',AS_HG)}${th('NB',AS_HG)}${AS_CODES.map(k=>th(k,AS_HC)).join('')}</tr>`}
-function asGroups(y,m){S.tmp._asY=y;S.tmp._asM=m;const {rows,last}=asData(y,m);const q=String(S.srch.tas||'').trim().toLowerCase();const vis=q?rows.filter(r=>(r.e.emp_id+' '+r.e.name+' '+(r.e.arabic_name||'')).toLowerCase().includes(q)):rows;
+function asGroups(y,m){S.tmp._asY=y;S.tmp._asM=m;const {rows,last}=asData(y,m);const q=String(S.srch.tas||'').trim().toLowerCase();const qx=q&&/^\d+$/.test(q)&&rows.some(r=>_nz(r.e.emp_id)===_nz(q));const vis=q?rows.filter(r=>qx?_nz(r.e.emp_id)===_nz(q):(r.e.emp_id+' '+r.e.name+' '+(r.e.arabic_name||'')).toLowerCase().includes(q)):rows;
  const g=[];vis.forEach(r=>{let x=g[g.length-1];if(!x||x.dep!==r.dep){x={dep:r.dep,rows:[]};g.push(x)}r.n=x.rows.length+1;x.rows.push(r)});
  g.forEach(x=>{x.tot=[];for(let d=0;d<last;d++)x.tot.push(x.rows.filter(r=>r.c[d]==='P').length);x.sums={};AS_CODES.forEach(k=>x.sums[k]=x.rows.reduce((s,r)=>s+r.cnt[k],0))});
  return {groups:g,last,all:vis}}
@@ -2180,9 +2181,9 @@ async function fcKeep(id,url){try{await mpKeepPhoto(id,url)}catch(e){}render()}
 ROUTES.faces=()=>{if(!canApprove())return head('🔒',L('HR only','للموارد البشرية فقط'),'','#7F1D1D');
  const c=mpCfg();if(!c.gsheet_url)return head('🧑',L('Face Enrollment','تسجيل الوجوه'),'')+`<div class="card"><p>${L('Set the Google Apps Script URL first in Settings → Mobile GPS Punch.','حط رابط Google Apps Script الأول في الإعدادات ← البصمة عبر الموبايل.')}</p>${btn('⚙️ '+L('Open','افتح'),"go('mobile')",'b')}</div>`;
  if(!_fc.rows&&!_fc.busy&&!_fc.err)setTimeout(()=>fcLoad(true),0);
- const f=S.tmp.fcF||'Pending',qs=(S.tmp.fcQ||'').toLowerCase();const all=_fc.rows||[];
+ const f=S.tmp.fcF||'Pending',qs=(S.tmp.fcQ||'').trim().toLowerCase();const all=_fc.rows||[];const qx=/^\d+$/.test(qs)&&all.some(r=>_nz(r.emp_id)===_nz(qs));
  const cnt=s=>all.filter(r=>s==='all'||r.status===s).length;
- const list=all.filter(r=>(f==='all'||r.status===f)&&(!qs||(String(r.name)+' '+r.emp_id).toLowerCase().includes(qs))).sort((a,b)=>(a.status==='Pending'?0:1)-(b.status==='Pending'?0:1)||num(b.row)-num(a.row));
+ const list=all.filter(r=>(f==='all'||r.status===f)&&(!qs||(qx?_nz(r.emp_id)===_nz(qs):(String(r.name)+' '+r.emp_id).toLowerCase().includes(qs)))).sort((a,b)=>(a.status==='Pending'?0:1)-(b.status==='Pending'?0:1)||num(b.row)-num(a.row));
  const col={Pending:'#B45309',Approved:'#047857',Rejected:'#B91C1C',Reset:'#475569'},ar={Pending:'منتظر',Approved:'معتمد',Rejected:'مرفوض',Reset:'إعادة تسجيل'};
  const tab=(k,t)=>`<button type="button" class="btn sm ${f===k?'b':''}" onclick="S.tmp.fcF='${k}';render()">${t} <b>(${cnt(k)})</b></button>`;
  const sc=_fc.cfg,sOn=sc?String(sc.require_face).toLowerCase()==='true':null;
@@ -2335,6 +2336,33 @@ setTimeout(()=>{const _sv=saveDB;saveDB=function(){lvBump();return _sv.apply(thi
 {const _ap1=approveLeave;approveLeave=function(){lvBump();const r=_ap1.apply(this,arguments);lvBump();return r}}
 {const _rj1=rejectLeave;rejectLeave=function(){lvBump();const r=_rj1.apply(this,arguments);lvBump();return r}}
 setInterval(lvBump,3000);
+/* ═══════════ Employee guard — an employee is never lost by accident ═══════════
+   Every employee this tab has seen is remembered. If one disappears WITHOUT a real delete
+   (Delete button, resignation → archive, a genuine delete from another up-to-date device, reset / restore of a backup),
+   it is put back at once, saved again to the server, and the Activity Log says what happened. */
+const EMPG={seen:{},allow:new Set(),skip:0,lastWhy:''};
+const empGuardAllow=id=>{EMPG.allow.add(String(id))};
+function empGuardSnap(){if(!DB||!DB.employees)return;const s={};for(const k in DB.employees)s[k]=DB.employees[k];EMPG.seen=s}
+function empGuardCheck(){if(!DB||!DB.employees||!S.user)return;if(EMPG.skip>Date.now()){empGuardSnap();return}
+ const lost=[];for(const k in EMPG.seen){if(DB.employees[k])continue;if(EMPG.allow.has(k)){EMPG.allow.delete(k);continue}if(DB.archived_employees&&DB.archived_employees[k])continue;lost.push(k)}
+ if(lost.length){lost.forEach(k=>{DB.employees[k]=EMPG.seen[k]});
+  log('Employee restored automatically',`${lost.length}: #${lost.slice(0,30).join(', #')} — removed without a delete (${EMPG.lastWhy||'unknown cause'}); put back and saved again`,'security');
+  EMPG.lastWhy='';saveDB();if(/^#\/(employees|dashboard|dash)/.test(getHash())&&!uiBusy())render()}
+ empGuardSnap()}
+/* real deletes */
+{const _d=delEmp;delEmp=function(id){const e=getEmp(id);if(e)empGuardAllow(e.emp_id);return _d.apply(this,arguments)}}
+{const _a=archiveEmp;archiveEmp=function(id){empGuardAllow(id);return _a.apply(this,arguments)}}
+/* whole data replaced on purpose (reset / restore backup / import "replace") */
+{const _r=resetAll;resetAll=function(){EMPG.skip=Date.now()+5000;return _r.apply(this,arguments)}}
+{const _i=importBackupBook;importBackupBook=function(book,replace){if(replace)EMPG.skip=Date.now()+5000;return _i.apply(this,arguments)}}
+setInterval(empGuardCheck,1500);
+setTimeout(()=>{empGuardSnap();
+ /* sync: a delete from another up-to-date device is a real delete; a full reload from the server is not */
+ if(typeof applyRemoteOp==='function'){const _ao=applyRemoteOp;applyRemoteOp=function(o){if(o&&o.c==='employees'&&o.v===null){if(o.why)empGuardAllow(o.k);else EMPG.lastWhy='old copy of the program'}return _ao.apply(this,arguments)}}
+ /* connecting this device to a server on purpose: take the server's data as it is */
+ ['onConnect','onHashConnect','onLoginConnect','lgConnect'].forEach(n=>{if(typeof window[n]==='function'){const f=window[n];window[n]=function(){EMPG.skip=Date.now()+15000;return f.apply(this,arguments)}}});
+ if(typeof fullLoad==='function'){const _fl=fullLoad;fullLoad=async function(){EMPG.lastWhy='full reload from the server';const r=await _fl.apply(this,arguments);empGuardCheck();EMPG.lastWhy='';return r}}
+ if(typeof onCycle==='function'){const _oc=onCycle;onCycle=async function(){const r=await _oc.apply(this,arguments);empGuardCheck();return r}}},0);
 
 /* ═══════════════════ ONLINE MULTI-USER ENGINE ═══════════════════
    All users work at the same time. Every change is detected per record,
@@ -2345,7 +2373,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793097253';
+const BUILD_ID='1793098473';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
