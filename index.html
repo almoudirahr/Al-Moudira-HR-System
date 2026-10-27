@@ -2373,7 +2373,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793098473';
+const BUILD_ID='1793099226';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
@@ -2439,7 +2439,8 @@ async function onCycle(){if(!onlineOn()||!DB)return;if(ONL.busy){ONL.again=true;
  try{if(!ONL.shadow){if(!(await loadShadow())){await fullLoad();changed=true}}
   /* 1) bring in the other devices' changes FIRST, so an old copy here never overwrites a newer change made elsewhere */
   const p=await onCall({action:'poll',since:ONL.ver},60000);if(p.online)ONL.online=p.online;ONL.srv=p.server||'old';
-  if(p.reset){await push();await fullLoad();changed=true}
+  if(p.reset){/* the server says its history is gone. Twice in a row = damaged change-log: ask the server (v3.3+) to repair itself first */
+   if(Date.now()-(ONL.lastReset||0)<180000){try{await onCall({action:'repair'},120000)}catch(x){}}ONL.lastReset=Date.now();await push();await fullLoad();changed=true}
   else{(p.batches||[]).forEach(b=>{b.ops.forEach(o=>{if(remoteIsNew(o)){if(o.v===null&&!o.why&&onHasLocal(o)){onRefuseDelete(o,b);return}if(o.v===null&&o.c==='employees'&&onHasLocal(o)&&typeof log==='function')log('Employee deleted on another device',`#${o.k} — ${b.user||''} (${b.client||''})`,'employees');if(!mergeRemote(o))applyRemoteOp(o);changed=true}})});ONL.ver=p.ver;persistShadow();
    /* 2) then send what changed here */
    await push()}
