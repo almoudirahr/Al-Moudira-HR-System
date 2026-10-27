@@ -2373,7 +2373,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793099226';
+const BUILD_ID='1793100385';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
@@ -2390,10 +2390,11 @@ function snapHashes(){ensureKeys();const h={};ON_ARRS.forEach(c=>{const m=h[c]={
 /* SAFE DELETE: a record is deleted on the server ONLY if this tab actually had it and it was removed here.
    If a record is simply missing from this tab's copy (old copy saved by another tab / device), it is NOT deleted —
    the full data is loaded again from the server instead. */
+function onEv(type,info){ONL.ev=ONL.ev||[];ONL.ev.push({t:new Date().toTimeString().slice(0,8),type,info:String(info==null?'':info).slice(0,160)});if(ONL.ev.length>40)ONL.ev.shift()}
 function onSeenSnap(){const s={};ON_ARRS.forEach(c=>{s[c]=new Set((DB[c]||[]).map(r=>r&&r._k).filter(Boolean))});ON_MAPS.forEach(c=>{s[c]=new Set(Object.keys(c==='settings'?settingsForSync():(DB[c]||{})))});ONL.seen=s}
 function onHasLocal(o){if(o.c==='_root'||o.c==='settings')return false;if(ON_ARRS.includes(o.c))return (DB[o.c]||[]).some(r=>r&&r._k===o.k);return !!(DB[o.c]&&DB[o.c][o.k]!==undefined)}
 /* a delete sent by an OLD copy of the program (or a broken one) is not accepted: the record stays here and is sent back to the server */
-function onRefuseDelete(o,b){const m=ONL.shadow[o.c];if(m)delete m[o.k];ONL.refused=(ONL.refused||0)+1;
+function onRefuseDelete(o,b){onEv('REFUSED DELETE',o.c+' #'+o.k+' from '+(b.user||'?')+' ('+(b.client||'?')+')');const m=ONL.shadow[o.c];if(m)delete m[o.k];ONL.refused=(ONL.refused||0)+1;
  if(typeof log==='function'&&(o.c==='employees'||ONL.refused<=3))log('Delete refused (old copy)',`${o.c} #${o.k} — from ${b.user||'?'} (${b.client||'?'}) — that device must reload the program (Ctrl+F5)`,'security')}
 function onCanDelete(c,k){if(!ONL.seen)return false;const s=ONL.seen[c];if(s&&s.has(k))return true;ONL.missing=(ONL.missing||0)+1;return false}
 function diffOps(){ensureKeys();const sh=ONL.shadow;const ops=[];if(!ONL.seen)onSeenSnap();
@@ -2425,7 +2426,7 @@ async function onCall(params,timeout){const c=onCfg();const ctl=typeof AbortCont
 let _shadowT=null;function persistShadow(){clearTimeout(_shadowT);_shadowT=setTimeout(async()=>{const t=JSON.stringify({ver:ONL.ver,client:onClient(),h:ONL.shadow});if(IDB.ok)await IDB.set('modo_hr_shadow',t);else try{ST.set('modo_hr_shadow',t)}catch(e){}},400)}
 async function loadShadow(){let t=null;if(IDB.ok)t=await IDB.get('modo_hr_shadow');if(!t)t=ST.get('modo_hr_shadow');try{const o=JSON.parse(t||'null');if(o&&o.h){ONL.shadow=o.h;ONL.ver=o.ver||0;if(!o.h._fh){o.h._fh={};ON_MERGE.forEach(c=>{const f=o.h._fh[c]={};for(const k in (DB[c]||{}))f[k]=fieldHashes(DB[c][k])})}return true}}catch(e){}return false}
 function onStatus(st,err){ONL.status=st;ONL.err=err||'';const b=$('#onlb');if(b)b.outerHTML=onlineHTML()}
-async function fullLoad(){let r=await onCall({action:'load'},180000);if(r.retry){await new Promise(z=>setTimeout(z,3000));r=await onCall({action:'load'},180000);if(r.retry)throw new Error(L('Server is busy, try again in a minute','الخادم مشغول، حاول بعد دقيقة'))}const lang=DB.language;DB=normalizeDB(r.data||{});DB.language=lang;ensureKeys();ONL.ver=r.ver;ONL.shadow=snapHashes();await persist();persistShadow();setTimeout(()=>onCycle(),60);onSeenSnap();return r}
+async function fullLoad(){onEv('FULL LOAD','start');let r=await onCall({action:'load'},180000);if(r.retry){await new Promise(z=>setTimeout(z,3000));r=await onCall({action:'load'},180000);if(r.retry)throw new Error(L('Server is busy, try again in a minute','الخادم مشغول، حاول بعد دقيقة'))}const lang=DB.language;DB=normalizeDB(r.data||{});DB.language=lang;ensureKeys();ONL.ver=r.ver;ONL.shadow=snapHashes();await persist();persistShadow();setTimeout(()=>onCycle(),60);onEv('FULL LOAD','done: server v'+r.ver+', employees '+Object.keys(DB.employees||{}).length);onSeenSnap();return r}
 async function uploadAll(){ensureKeys();const lang=DB.language;const data=JSON.parse(JSON.stringify(DB));delete data.language;delete data._stamp;if(data.settings){ON_LOCAL_SETTINGS.forEach(k=>delete data.settings[k])}
  data.mobile_punch_log=Object.fromEntries((data.mobile_punch_log||[]).map(r=>[r._k,r]));/* server keeps this log as a keyed map */
  const r=await onCall({action:'replace',data:JSON.stringify(data)},300000);ONL.ver=r.ver;ONL.shadow=snapHashes();persistShadow();return r}
@@ -2435,17 +2436,17 @@ async function onCycle(){if(!onlineOn()||!DB)return;if(ONL.busy){ONL.again=true;
   if(ops.length){onStatus('sync');for(let i=0;i<ops.length;i+=1500){const chunk=ops.slice(i,i+1500);const r=await onCall({action:'commit',ops:chunk.map(o=>o.n?{c:o.c,k:o.k,v:o.v,n:1}:(o.why?{c:o.c,k:o.k,v:o.v,why:o.why}:{c:o.c,k:o.k,v:o.v}))},120000);chunk.forEach(shadowSet);
     (r.idmap||[]).forEach(m=>{const rec=(DB[m.c]||[]).find(x=>x._k===m.k);if(rec){rec[m.field]=m.to;shadowSet({c:m.c,k:m.k,v:rec});changed=true;notify(L(`Number ${m.from} was already used by another user — saved as ${m.to}`,`الرقم ${m.from} استخدمه مستخدم آخر — تم الحفظ برقم ${m.to}`),'info')}});
     if(r.online)ONL.online=r.online}ONL.pendingN=0;persistShadow()}
-  onSeenSnap();if(ONL.missing){const n=ONL.missing;ONL.missing=0;console.warn('online: '+n+' record(s) missing in this copy — reloading from the server');await fullLoad();changed=true}};
+  onSeenSnap();if(ONL.missing){const n=ONL.missing;ONL.missing=0;console.warn('online: '+n+' record(s) missing in this copy — reloading from the server');onEv('MISSING',n+' record(s) missing here');await fullLoad();changed=true}};
  try{if(!ONL.shadow){if(!(await loadShadow())){await fullLoad();changed=true}}
   /* 1) bring in the other devices' changes FIRST, so an old copy here never overwrites a newer change made elsewhere */
   const p=await onCall({action:'poll',since:ONL.ver},60000);if(p.online)ONL.online=p.online;ONL.srv=p.server||'old';
-  if(p.reset){/* the server says its history is gone. Twice in a row = damaged change-log: ask the server (v3.3+) to repair itself first */
+  if(p.reset){onEv('RESET','server asked for a full reload (since '+ONL.ver+', server '+p.ver+')');/* the server says its history is gone. Twice in a row = damaged change-log: ask the server (v3.3+) to repair itself first */
    if(Date.now()-(ONL.lastReset||0)<180000){try{await onCall({action:'repair'},120000)}catch(x){}}ONL.lastReset=Date.now();await push();await fullLoad();changed=true}
   else{(p.batches||[]).forEach(b=>{b.ops.forEach(o=>{if(remoteIsNew(o)){if(o.v===null&&!o.why&&onHasLocal(o)){onRefuseDelete(o,b);return}if(o.v===null&&o.c==='employees'&&onHasLocal(o)&&typeof log==='function')log('Employee deleted on another device',`#${o.k} — ${b.user||''} (${b.client||''})`,'employees');if(!mergeRemote(o))applyRemoteOp(o);changed=true}})});ONL.ver=p.ver;persistShadow();
    /* 2) then send what changed here */
    await push()}
   if(changed)await persist();ONL.lastOk=Date.now();onStatus('ok')}
- catch(e){onStatus('err',e.message);console.warn('online',e)}
+ catch(e){onStatus('err',e.message);onEv('ERROR',e.message);console.warn('online',e)}
  finally{ONL.busy=false;if(changed)onRemoteChanged();if(ONL.again){ONL.again=false;setTimeout(onCycle,50)}}}
 function uiBusy(){const a=document.activeElement;const h=getHash();const typing=a&&a.matches&&a.matches('input,textarea,select')&&!(a.closest&&a.closest('.search'));return typing||/\/(new|edit|import|calc|bulk)/.test(h)||/settings\/(password|users\/)/.test(h)}
 function onRemoteChanged(){if(!S.user)return;if(!allUsers()[S.user]||DB.disabled_users.includes(S.user)){logout();return}if(typeof sessCheck==='function'&&!sessCheck())return;if(uiBusy()){ONL.dirtyUI=true;const b=$('#onlb');if(b)b.outerHTML=onlineHTML();return}ONL.dirtyUI=false;const y=window.scrollY;const a=document.activeElement;const st=a&&a.dataset&&a.dataset.t?{t:a.dataset.t,p:a.selectionStart}:null;render();window.scrollTo(0,y);if(st){const n=document.querySelector(`.search input[data-t="${st.t}"]`);if(n){n.focus();try{n.setSelectionRange(st.p,st.p)}catch(e){}}}}
@@ -2495,12 +2496,19 @@ function onSetupLink(){const c=onCfg();const tok=btoa(unescape(encodeURIComponen
 async function onDiag(){const box=$('#onlExtra');box.innerHTML=`<div class="flash info">⏳ ${L('Checking the server…','جاري فحص الخادم…')}</div>`;
  try{await onCycle();const t0=Date.now();const d=await onCall({action:'diag'},90000);const ms=Date.now()-t0;const okv=d.ver===ONL.ver;const v3=String(d.server||'').startsWith('3');
   box.innerHTML=`<div class="card"><h3>🩺 ${L('Server check','فحص الخادم')}</h3><div class="kv">
-  <b>${L('Server version','إصدار الخادم')}</b><span>${esc(d.server||'2')} ${v3?'✅':'⚠️ '+L('old — paste the new server code and Deploy → New version','قديم — الصق كود الخادم الجديد واعمل Deploy ← New version')}</span>
+  <b>${L('Server version','إصدار الخادم')}</b><span>${esc(d.server||'2')} ${parseFloat(d.server||0)>=3.3?'✅':'⚠️ '+L('OLD — paste the new server code and Deploy → Manage deployments → Edit → New version','قديم — الصق كود الخادم الجديد واعمل Deploy ← Manage deployments ← Edit ← New version')}</span>
   <b>${L('Data version (server / this device)','رقم البيانات (الخادم / هذا الجهاز)')}</b><span>${d.ver} / ${ONL.ver} ${okv?'✅ '+L('up to date','محدّث'):'⏳'}</span>
   ${v3?`<b>${L('Change log rows','سطور سجل التعديلات')}</b><span>${d.logRows} (${L('snapshot','اللقطة')} v${d.snapVer})</span><b>${L('Change log sheet','شيت سجل التعديلات')}</b><span><a href="${esc(d.sheet||'#')}" target="_blank">${L('open','فتح')}</a></span>`:''}
   <b>${L('Connected users','المستخدمون المتصلون')}</b><span>${esc((d.online||[]).map(o=>o.user+(o.client===onClient()?' ('+L('this device','هذا الجهاز')+')':'')).join(' — ')||'—')}</span>
-  <b>${L('Response time','زمن الاستجابة')}</b><span>${ms} ms</span></div></div>`}
+  <b>${L('Response time','زمن الاستجابة')}</b><span>${ms} ms</span>
+  <b>${L('Employees (server snapshot / this device)','الموظفين (نسخة الخادم / الجهاز ده)')}</b><span>${d.employees??'—'} / ${Object.keys(DB.employees||{}).length}</span>
+  <b>${L('Program build','نسخة البرنامج')}</b><span>${esc(String(BUILD_ID))}</span></div>
+  <details class="mt"><summary>${L('Technical details (send a screenshot of this)','تفاصيل فنية (ابعت صورة منها)')}</summary><pre style="direction:ltr;text-align:left;white-space:pre-wrap;font-size:11.5px;background:#F8FAFC;padding:10px;border-radius:8px">${esc(JSON.stringify(Object.assign({},d,{online:undefined,sheet:undefined}),null,0))}
+— ${L('this device','هذا الجهاز')}: ver ${ONL.ver} · status ${ONL.status} ${esc(ONL.err||'')}
+${(ONL.ev||[]).slice(-25).map(x=>x.t+'  '+x.type+'  '+x.info).join('\n')||'(no sync events)'}</pre></details>
+  <div class="actions">${dbtn('🛠 '+L('Repair the server','إصلاح الخادم'),'onRepair()','y')}</div></div>`}
  catch(e){box.innerHTML=`<div class="flash err">❌ ${esc(e.message)}</div>`}}
+async function onRepair(){try{notify('⏳ '+L('Repairing the server…','جاري إصلاح الخادم…'),'info');const d=await onCall({action:'repair'},240000);onEv('REPAIR','server v'+d.ver+', employees '+d.employees);notify(L('Server repaired — loading the data again','تم إصلاح الخادم — جاري تحميل البيانات من جديد'),'info');await fullLoad();render();onDiag()}catch(e){notify(L('Repair failed: ','فشل الإصلاح: ')+e.message+(/unknown action/i.test(e.message)?' — '+L('the server still runs the OLD code: paste the new server code and Deploy → Manage deployments → Edit → New version','الخادم لسه شغال بالكود القديم: الصق كود الخادم الجديد واعمل Deploy ← Manage deployments ← Edit ← New version'):''),'err')}}
 async function onHashConnect(){const h=(()=>{try{return location.hash}catch(e){return ''}})();if(!h.startsWith('#connect='))return false;
  try{const o=JSON.parse(decodeURIComponent(escape(atob(h.slice(9)))));try{history.replaceState(null,'',location.pathname+location.search)}catch(e){location.hash=''}
   if(!o.u||!o.k)return false;onSaveCfg({url:o.u,key:o.k});ONL.shadow=null;S.tmp.connectMsg='⏳ '+L('Linking this device to the server…','جاري ربط الجهاز بالخادم…');render();
