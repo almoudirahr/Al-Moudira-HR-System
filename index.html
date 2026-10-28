@@ -514,13 +514,19 @@ function readSheet(file){return new Promise((res,rej)=>{const rd=new FileReader(
  rd.onload=()=>{try{const wb=xlFixDates(XLSX.read(new Uint8Array(rd.result),{type:'array',cellDates:true,dateNF:'dd/mm/yyyy'}));const ws=wb.Sheets[wb.SheetNames[0]];res(XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'dd/mm/yyyy',defval:''}))}catch(e){rej(e)}};rd.readAsArrayBuffer(file)})}
 
 /* ═══════════════════ Payroll engine (unified — same as v65 monthly report) ═══════════════════ */
-/* days paid in the payroll month (25 → 24): a full month = 30; joined after the 25th or left before the 24th = only the days worked (salary / 30 × days) */
-function payDays(emp,m,y){if(!m||!y||!emp)return 30;const [ps,pe]=periodBounds(m,y);const hd=parseD(emp.hire_date),rd=parseD(emp.resignation_date);
- const s=hd&&hd>ps?hd:ps,e=rd&&rd<pe?rd:pe;if(e<s)return 0;if(s===ps&&e===pe)return 30;return Math.min(30,daysBetween(s,e)+1)}
+/* days paid in the SALARY month — the calendar month (1 → 30/31), not the 25 → 24 period used for everything else.
+   Every month counts as 30 days: joined on day N → 30 − (N − 1) days; left on day N → N days (the last day of the month = 30). */
+function payDays(emp,m,y){if(!m||!y||!emp)return 30;const ms=new Date(y,m-1,1),me=new Date(y,m,0),last=me.getDate();const hd=parseD(emp.hire_date),rd=parseD(emp.resignation_date);
+ if(hd&&hd>me)return 0;if(rd&&rd<ms)return 0;
+ const sd=hd&&hd>=ms?Math.min(hd.getDate(),30):1;const ed=rd&&rd<=me?(rd.getDate()>=last?30:Math.min(rd.getDate(),30)):30;
+ return Math.max(0,Math.min(30,ed-sd+1))}
 function payrollRow(emp,m,y){
  const days=payDays(emp,m,y),pf=days/30;
- const sal=r2(num(emp.salary)*pf),tr=r2(num(emp.transportation)*pf),al=r2(num(emp.allowances)*pf);
- let service=emp.service_charge_eligible!==false?r2(num(emp.service_allowance)*pf):0;
+ const fSal=num(emp.salary),fTr=num(emp.transportation),fAl=num(emp.allowances),fSvc=emp.service_charge_eligible!==false?num(emp.service_allowance):0;
+ const sal=r2(fSal*pf),tr=r2(fTr*pf),al=r2(fAl*pf);
+ let service=r2(fSvc*pf);
+ /* days not worked: the earnings are shown in full and the missing days are deducted (in the Absent column) — net is the same */
+ const notWorked=days<30?r2(fSal+fTr+fAl+fSvc-(sal+tr+al+service)):0;
  let gross=sal+tr+al+service;
  const tis=tisNorm(emp),applyIns=['both','insurance_only'].includes(tis),applyTax=['both','tax_only'].includes(tis);
  const insMax=num(DB.insurance_settings.max)||16700;
@@ -551,7 +557,7 @@ function payrollRow(emp,m,y){
  let tax=0;if(applyTax){const t=gross-ins-5000;if(t>0){tax=t<=1250?t*0.10:t<=2500?125+(t-1250)*0.15:125+187.5+(t-2500)*0.20}}
  tax=r2(tax);
  const net=round5(gross-ins-health-penalties-absent-sick-advances-cl-totalDed-tax);
- return {code:emp.bank_code||emp.emp_id,emp_id:emp.emp_id,name:emp.name,dept:deptName(emp.department),basic:sal,transport:tr,allowances:al,service:r2(service),gross:r2(gross),insurance:ins,health,penalties,absent:r2(absent),sick,advances:r2(advances),deductions:totalDed,cl_staff:r2(cl),tax,net,applyIns,applyTax,sickDays,unpaidDays,insSickDays,days,fullBasic:num(emp.salary)}}
+ return {code:emp.bank_code||emp.emp_id,emp_id:emp.emp_id,name:emp.name,dept:deptName(emp.department),basic:fSal,transport:fTr,allowances:fAl,service:r2(service+(fSvc-r2(fSvc*pf))),gross:r2(gross+notWorked),insurance:ins,health,penalties,absent:r2(absent+notWorked),notWorked,sick,advances:r2(advances),deductions:totalDed,cl_staff:r2(cl),tax,net,applyIns,applyTax,sickDays,unpaidDays,insSickDays,days,fullBasic:num(emp.salary)}}
 const MR_HEAD=['Bank Code','Name','Department','Basic','Transport','Allowances','Service','Amount','Insurance','Health Ins.','Penalty','Absent','Sick Leave','Advance','Deductions','CL Staff','Tax','Net'];
 const MR_HEAD_AR=['كود البنك','الاسم','القسم','الأساسي','الانتقالات','البدلات','الخدمة','الإجمالي','التأمينات','التأمين الصحي','الجزاءات','الغياب','المرضي','السلف','الخصومات','خصم العاملين','الضريبة','الصافي'];
 const mrHead=()=>S.lang==='ar'?MR_HEAD_AR:MR_HEAD;
@@ -1117,10 +1123,10 @@ ROUTES.slip=(id,per)=>{let [y,m]=(per||'').split('-').map(Number);if(!m)[m,y]=cu
  +`<div class="wrap"><div class="filters">${fld(L('Employee Code','كود الموظف'),`<input id="slc" value="${esc(id||'')}" placeholder="${esc(L('Code or name','الكود أو الاسم'))}" onkeydown="if(event.key==='Enter')slipGo()">`)}${fld(L('Pay Period','الشهر'),monthSel('slm',m))}${fld(L('Year','السنة'),`<input type="number" id="sly" value="${y}">`)}${btn('🔍 '+L('Show','عرض'),'slipGo()','p')}</div>${body}</div>`};
 function slipGo(){const v=$('#slc').value.trim();let e=getEmp(v);if(!e&&v){const m=Object.values(DB.employees).filter(x=>(x.name||'').toLowerCase().includes(v.toLowerCase())||(x.arabic_name||'').includes(v));if(m.length===1)e=m[0];else if(m.length>1){notify(L('More than one match — type the code','أكثر من نتيجة — اكتب الكود'),'err');return}}go('slip/'+encodeURIComponent(e?e.emp_id:v)+'/'+$('#sly').value+'-'+$('#slm').value)}
 function slipHTML(e,r,m,y,pr){const [ps,pe]=periodBounds(m,y);const L2=(en,ar)=>`${en} / ${ar}`;
- const earn=[[L2('Basic Salary','الأساسي')+(r.days<30?` <small class="muted">(${r.days}/30 ${L2('days','يوم')} — ${L2('full','كامل')} ${money(r.fullBasic)})</small>`:''),r.basic],[L2('Transportation','الانتقالات'),r.transport],[L2('Allowances','البدلات'),r.allowances],[L2('Service','الخدمة'),r.service]];
- const ded=[[L2('Social Insurance 11%','التأمينات 11%'),r.insurance],[L2('Health Insurance','التأمين الصحي'),r.health],[L2('Penalties','الجزاءات'),r.penalties],[L2('Absence','الغياب'),r.absent],[L2(`Sick Leave (${r.sickDays}d)`,`المرضي (${r.sickDays} يوم)`),r.sick],[L2('Advances','السلف'),r.advances],[L2('Other Deductions','خصومات أخرى'),r.deductions],[L2('CL Staff','خصم العاملين'),r.cl_staff],[L2('Income Tax','ضريبة الدخل'),r.tax]];
+ const earn=[[L2('Basic Salary','الأساسي'),r.basic],[L2('Transportation','الانتقالات'),r.transport],[L2('Allowances','البدلات'),r.allowances],[L2('Service','الخدمة'),r.service]];
+ const ded=[[L2('Social Insurance 11%','التأمينات 11%'),r.insurance],[L2('Health Insurance','التأمين الصحي'),r.health],[L2('Penalties','الجزاءات'),r.penalties],...(r.notWorked?[[L2(`Days not worked (${30-r.days}d — worked ${r.days}/30)`,`أيام لم يعمل بها (${30-r.days} يوم — اشتغل ${r.days}/30)`),r.notWorked]]:[]),[L2('Absence','الغياب'),r2(r.absent-num(r.notWorked))],[L2(`Sick Leave (${r.sickDays}d)`,`المرضي (${r.sickDays} يوم)`),r.sick],[L2('Advances','السلف'),r.advances],[L2('Other Deductions','خصومات أخرى'),r.deductions],[L2('CL Staff','خصم العاملين'),r.cl_staff],[L2('Income Tax','ضريبة الدخل'),r.tax]];
  const totD=ded.reduce((s,x)=>s+num(x[1]),0);const tb=(t,a,tot)=>`<table class="tbl" style="margin-bottom:0"><thead><tr><th colspan="2">${t}</th></tr></thead><tbody>${a.map(([k,v])=>`<tr><td style="text-align:start">${k}</td><td>${money(v)}</td></tr>`).join('')}<tr class="sub"><td style="text-align:start">${L2('Total','الإجمالي')}</td><td>${money(tot)}</td></tr></tbody></table>`;
- return `<div class="${pr?'':'card'}"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px"><div><b style="font-size:17px">${esc(e.name)}</b>${e.arabic_name?' — '+esc(e.arabic_name):''}<br><span class="muted">${esc(e.emp_id)} · ${esc(tv(empDept(e)))} · ${esc(e.position||'')}</span></div><div style="text-align:end"><b>${MONTHS_EN[m-1]} ${y} / ${MONTHS_AR[m-1]}</b><br><span class="muted">${dmy(ps)} → ${dmy(pe)}</span><br><span class="muted">${L2('Bank code','كود البنك')}: ${esc(e.bank_code||'—')}</span></div></div>
+ return `<div class="${pr?'':'card'}"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px"><div><b style="font-size:17px">${esc(e.name)}</b>${e.arabic_name?' — '+esc(e.arabic_name):''}<br><span class="muted">${esc(e.emp_id)} · ${esc(tv(empDept(e)))} · ${esc(e.position||'')}</span></div><div style="text-align:end"><b>${MONTHS_EN[m-1]} ${y} / ${MONTHS_AR[m-1]}</b><br><span class="muted">${L2('Salary','المرتب')}: ${dmy(new Date(y,m-1,1))} → ${dmy(new Date(y,m,0))}</span><br><span class="muted">${L2('Attendance, advances, penalties','الحضور والسلف والجزاءات')}: ${dmy(ps)} → ${dmy(pe)}</span><br><span class="muted">${L2('Bank code','كود البنك')}: ${esc(e.bank_code||'—')}</span></div></div>
  <div class="cols2">${tb(L2('Earnings','المستحقات'),earn,r.gross)}${tb(L2('Deductions','الاستقطاعات'),ded,totD)}</div>
  <div class="net"><span>NET SALARY / صافي المرتب</span><span>${money(r.net)} ${L('EGP','ج.م')}</span></div><p style="text-align:center;margin:8px 0 0">${tafqeet(r.net)}</p></div>`}
 function printSlip(){const {e,r,m,y}=S.tmp.slip;printDoc('SALARY SLIP / قسيمة المرتب',slipHTML(e,r,m,y,true)+sigs([L('Employee','الموظف'),L('Accountant','المحاسب'),L('HR Manager','مدير الموارد البشرية')]))}
@@ -1757,8 +1763,8 @@ function mpPhoto(url,cap){const m=String(url).match(/[-\w]{25,}/);const src=m&&/
  $('#mpPhoto').innerHTML=`<div class="card center"><img src="${esc(src)}" style="max-width:100%;max-height:420px;border-radius:10px" alt="" onerror="this.replaceWith(Object.assign(document.createElement('p'),{textContent:'${esc(L('Photo cannot be shown here — use Open','لا يمكن عرض الصورة هنا — استخدم فتح'))}'}))"><p><b>${esc(cap)}</b></p>${btn('🌐 '+L('Open','فتح'),`window.open(${q(url)},'_blank')`,'b sm')} ${btn('✕',"$('#mpPhoto').innerHTML=''",'d sm')}</div>`;window.scrollTo({top:$('#mpPhoto').offsetTop-80,behavior:'smooth'})}
 /* ═══════════ Salary slip — dedicated print layout ═══════════ */
 function slipPrintHTML(e,r,m,y){const [ps,pe]=periodBounds(m,y);const co=DB.settings||{};
- const pdN=r.days!=null&&r.days<30;const earn=[[pdN?`Basic Salary (${r.days}/30 days)`:'Basic Salary',pdN?`الأجر الأساسي (${r.days}/30 يوم)`:'الأجر الأساسي',r.basic],['Transportation','بدل الانتقال',r.transport],['Allowances','البدلات',r.allowances],['Service Charge','نسبة الخدمة',r.service]];
- const ded=[['Social Insurance 11%','التأمينات الاجتماعية 11%',r.insurance],['Health Insurance','التأمين الصحي',r.health],['Penalties','الجزاءات',r.penalties],['Absence','الغياب',r.absent],[`Sick Leave (${r.sickDays||0} d)`,`الإجازة المرضية (${r.sickDays||0} يوم)`,r.sick],['Advances','السلف',r.advances],['Other Deductions','خصومات أخرى',r.deductions],['CL Staff','خصم العاملين',r.cl_staff],['Income Tax','ضريبة كسب العمل',r.tax]];
+ const earn=[['Basic Salary','الأجر الأساسي',r.basic],['Transportation','بدل الانتقال',r.transport],['Allowances','البدلات',r.allowances],['Service Charge','نسبة الخدمة',r.service]];
+ const ded=[['Social Insurance 11%','التأمينات الاجتماعية 11%',r.insurance],['Health Insurance','التأمين الصحي',r.health],['Penalties','الجزاءات',r.penalties],...(r.notWorked?[[`Days not worked (${30-r.days} d)`,`أيام لم يعمل بها (${30-r.days} يوم)`,r.notWorked]]:[]),['Absence','الغياب',r2(r.absent-num(r.notWorked))],[`Sick Leave (${r.sickDays||0} d)`,`الإجازة المرضية (${r.sickDays||0} يوم)`,r.sick],['Advances','السلف',r.advances],['Other Deductions','خصومات أخرى',r.deductions],['CL Staff','خصم العاملين',r.cl_staff],['Income Tax','ضريبة كسب العمل',r.tax]];
  const totD=ded.reduce((s,x)=>s+num(x[2]),0);
  const rows=a=>a.map(([en,ar,v])=>`<tr class="${num(v)?'':'z'}"><td class="lb"><b>${ar}</b><small>${en}</small></td><td class="am">${num(v)?money(v):'—'}</td></tr>`).join('');
  const tb=(en,ar,a,tot,cls)=>`<table class="st ${cls}"><thead><tr><th colspan="2">${ar} <small>${en}</small></th></tr></thead><tbody>${rows(a)}</tbody><tfoot><tr><td class="lb"><b>الإجمالي</b><small>Total</small></td><td class="am">${money(tot)}</td></tr></tfoot></table>`;
@@ -2414,7 +2420,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793178109';
+const BUILD_ID='1793179672';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
