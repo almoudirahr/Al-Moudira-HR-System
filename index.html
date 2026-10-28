@@ -514,9 +514,13 @@ function readSheet(file){return new Promise((res,rej)=>{const rd=new FileReader(
  rd.onload=()=>{try{const wb=xlFixDates(XLSX.read(new Uint8Array(rd.result),{type:'array',cellDates:true,dateNF:'dd/mm/yyyy'}));const ws=wb.Sheets[wb.SheetNames[0]];res(XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'dd/mm/yyyy',defval:''}))}catch(e){rej(e)}};rd.readAsArrayBuffer(file)})}
 
 /* ═══════════════════ Payroll engine (unified — same as v65 monthly report) ═══════════════════ */
+/* days paid in the payroll month (25 → 24): a full month = 30; joined after the 25th or left before the 24th = only the days worked (salary / 30 × days) */
+function payDays(emp,m,y){if(!m||!y||!emp)return 30;const [ps,pe]=periodBounds(m,y);const hd=parseD(emp.hire_date),rd=parseD(emp.resignation_date);
+ const s=hd&&hd>ps?hd:ps,e=rd&&rd<pe?rd:pe;if(e<s)return 0;if(s===ps&&e===pe)return 30;return Math.min(30,daysBetween(s,e)+1)}
 function payrollRow(emp,m,y){
- const sal=num(emp.salary),tr=num(emp.transportation),al=num(emp.allowances);
- let service=emp.service_charge_eligible!==false?num(emp.service_allowance):0;
+ const days=payDays(emp,m,y),pf=days/30;
+ const sal=r2(num(emp.salary)*pf),tr=r2(num(emp.transportation)*pf),al=r2(num(emp.allowances)*pf);
+ let service=emp.service_charge_eligible!==false?r2(num(emp.service_allowance)*pf):0;
  let gross=sal+tr+al+service;
  const tis=tisNorm(emp),applyIns=['both','insurance_only'].includes(tis),applyTax=['both','tax_only'].includes(tis);
  const insMax=num(DB.insurance_settings.max)||16700;
@@ -547,11 +551,11 @@ function payrollRow(emp,m,y){
  let tax=0;if(applyTax){const t=gross-ins-5000;if(t>0){tax=t<=1250?t*0.10:t<=2500?125+(t-1250)*0.15:125+187.5+(t-2500)*0.20}}
  tax=r2(tax);
  const net=round5(gross-ins-health-penalties-absent-sick-advances-cl-totalDed-tax);
- return {code:emp.bank_code||emp.emp_id,emp_id:emp.emp_id,name:emp.name,dept:deptName(emp.department),basic:sal,transport:tr,allowances:al,service:r2(service),gross:r2(gross),insurance:ins,health,penalties,absent:r2(absent),sick,advances:r2(advances),deductions:totalDed,cl_staff:r2(cl),tax,net,applyIns,applyTax,sickDays,unpaidDays,insSickDays}}
+ return {code:emp.bank_code||emp.emp_id,emp_id:emp.emp_id,name:emp.name,dept:deptName(emp.department),basic:sal,transport:tr,allowances:al,service:r2(service),gross:r2(gross),insurance:ins,health,penalties,absent:r2(absent),sick,advances:r2(advances),deductions:totalDed,cl_staff:r2(cl),tax,net,applyIns,applyTax,sickDays,unpaidDays,insSickDays,days,fullBasic:num(emp.salary)}}
 const MR_HEAD=['Bank Code','Name','Department','Basic','Transport','Allowances','Service','Amount','Insurance','Health Ins.','Penalty','Absent','Sick Leave','Advance','Deductions','CL Staff','Tax','Net'];
 const MR_HEAD_AR=['كود البنك','الاسم','القسم','الأساسي','الانتقالات','البدلات','الخدمة','الإجمالي','التأمينات','التأمين الصحي','الجزاءات','الغياب','المرضي','السلف','الخصومات','خصم العاملين','الضريبة','الصافي'];
 const mrHead=()=>S.lang==='ar'?MR_HEAD_AR:MR_HEAD;
-const rowArr=r=>[r.code,r.name,r.dept,r.basic,r.transport,r.allowances,r.service,r.gross,r.insurance,r.health,r.penalties,r.absent,r.sick,r.advances,r.deductions,r.cl_staff,r.tax,r.net].map((v,i)=>i<3?v:Number(r2(v)).toFixed(2));
+const rowArr=r=>[r.code,r.name+(r.days!=null&&r.days<30?` (${r.days}/30 ${L('days','يوم')})`:''),r.dept,r.basic,r.transport,r.allowances,r.service,r.gross,r.insurance,r.health,r.penalties,r.absent,r.sick,r.advances,r.deductions,r.cl_staff,r.tax,r.net].map((v,i)=>i<3?v:Number(r2(v)).toFixed(2));
 /* Farm card = the farm departments (Farm Workers, Maintenance Farm, GM Farm, Gardener Farm — any department with "Farm" in its name)
    + Upholstery Workshop + Carpentry Workshop; everyone else = Hotel */
 const isFarmEmp=e=>!!e&&/farm|مزرع|upholster|carpent|نجار|تنجيد/i.test(String(deptName(e.department)||''));
@@ -1113,7 +1117,7 @@ ROUTES.slip=(id,per)=>{let [y,m]=(per||'').split('-').map(Number);if(!m)[m,y]=cu
  +`<div class="wrap"><div class="filters">${fld(L('Employee Code','كود الموظف'),`<input id="slc" value="${esc(id||'')}" placeholder="${esc(L('Code or name','الكود أو الاسم'))}" onkeydown="if(event.key==='Enter')slipGo()">`)}${fld(L('Pay Period','الشهر'),monthSel('slm',m))}${fld(L('Year','السنة'),`<input type="number" id="sly" value="${y}">`)}${btn('🔍 '+L('Show','عرض'),'slipGo()','p')}</div>${body}</div>`};
 function slipGo(){const v=$('#slc').value.trim();let e=getEmp(v);if(!e&&v){const m=Object.values(DB.employees).filter(x=>(x.name||'').toLowerCase().includes(v.toLowerCase())||(x.arabic_name||'').includes(v));if(m.length===1)e=m[0];else if(m.length>1){notify(L('More than one match — type the code','أكثر من نتيجة — اكتب الكود'),'err');return}}go('slip/'+encodeURIComponent(e?e.emp_id:v)+'/'+$('#sly').value+'-'+$('#slm').value)}
 function slipHTML(e,r,m,y,pr){const [ps,pe]=periodBounds(m,y);const L2=(en,ar)=>`${en} / ${ar}`;
- const earn=[[L2('Basic Salary','الأساسي'),r.basic],[L2('Transportation','الانتقالات'),r.transport],[L2('Allowances','البدلات'),r.allowances],[L2('Service','الخدمة'),r.service]];
+ const earn=[[L2('Basic Salary','الأساسي')+(r.days<30?` <small class="muted">(${r.days}/30 ${L2('days','يوم')} — ${L2('full','كامل')} ${money(r.fullBasic)})</small>`:''),r.basic],[L2('Transportation','الانتقالات'),r.transport],[L2('Allowances','البدلات'),r.allowances],[L2('Service','الخدمة'),r.service]];
  const ded=[[L2('Social Insurance 11%','التأمينات 11%'),r.insurance],[L2('Health Insurance','التأمين الصحي'),r.health],[L2('Penalties','الجزاءات'),r.penalties],[L2('Absence','الغياب'),r.absent],[L2(`Sick Leave (${r.sickDays}d)`,`المرضي (${r.sickDays} يوم)`),r.sick],[L2('Advances','السلف'),r.advances],[L2('Other Deductions','خصومات أخرى'),r.deductions],[L2('CL Staff','خصم العاملين'),r.cl_staff],[L2('Income Tax','ضريبة الدخل'),r.tax]];
  const totD=ded.reduce((s,x)=>s+num(x[1]),0);const tb=(t,a,tot)=>`<table class="tbl" style="margin-bottom:0"><thead><tr><th colspan="2">${t}</th></tr></thead><tbody>${a.map(([k,v])=>`<tr><td style="text-align:start">${k}</td><td>${money(v)}</td></tr>`).join('')}<tr class="sub"><td style="text-align:start">${L2('Total','الإجمالي')}</td><td>${money(tot)}</td></tr></tbody></table>`;
  return `<div class="${pr?'':'card'}"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px"><div><b style="font-size:17px">${esc(e.name)}</b>${e.arabic_name?' — '+esc(e.arabic_name):''}<br><span class="muted">${esc(e.emp_id)} · ${esc(tv(empDept(e)))} · ${esc(e.position||'')}</span></div><div style="text-align:end"><b>${MONTHS_EN[m-1]} ${y} / ${MONTHS_AR[m-1]}</b><br><span class="muted">${dmy(ps)} → ${dmy(pe)}</span><br><span class="muted">${L2('Bank code','كود البنك')}: ${esc(e.bank_code||'—')}</span></div></div>
@@ -1753,7 +1757,7 @@ function mpPhoto(url,cap){const m=String(url).match(/[-\w]{25,}/);const src=m&&/
  $('#mpPhoto').innerHTML=`<div class="card center"><img src="${esc(src)}" style="max-width:100%;max-height:420px;border-radius:10px" alt="" onerror="this.replaceWith(Object.assign(document.createElement('p'),{textContent:'${esc(L('Photo cannot be shown here — use Open','لا يمكن عرض الصورة هنا — استخدم فتح'))}'}))"><p><b>${esc(cap)}</b></p>${btn('🌐 '+L('Open','فتح'),`window.open(${q(url)},'_blank')`,'b sm')} ${btn('✕',"$('#mpPhoto').innerHTML=''",'d sm')}</div>`;window.scrollTo({top:$('#mpPhoto').offsetTop-80,behavior:'smooth'})}
 /* ═══════════ Salary slip — dedicated print layout ═══════════ */
 function slipPrintHTML(e,r,m,y){const [ps,pe]=periodBounds(m,y);const co=DB.settings||{};
- const earn=[['Basic Salary','الأجر الأساسي',r.basic],['Transportation','بدل الانتقال',r.transport],['Allowances','البدلات',r.allowances],['Service Charge','نسبة الخدمة',r.service]];
+ const pdN=r.days!=null&&r.days<30;const earn=[[pdN?`Basic Salary (${r.days}/30 days)`:'Basic Salary',pdN?`الأجر الأساسي (${r.days}/30 يوم)`:'الأجر الأساسي',r.basic],['Transportation','بدل الانتقال',r.transport],['Allowances','البدلات',r.allowances],['Service Charge','نسبة الخدمة',r.service]];
  const ded=[['Social Insurance 11%','التأمينات الاجتماعية 11%',r.insurance],['Health Insurance','التأمين الصحي',r.health],['Penalties','الجزاءات',r.penalties],['Absence','الغياب',r.absent],[`Sick Leave (${r.sickDays||0} d)`,`الإجازة المرضية (${r.sickDays||0} يوم)`,r.sick],['Advances','السلف',r.advances],['Other Deductions','خصومات أخرى',r.deductions],['CL Staff','خصم العاملين',r.cl_staff],['Income Tax','ضريبة كسب العمل',r.tax]];
  const totD=ded.reduce((s,x)=>s+num(x[2]),0);
  const rows=a=>a.map(([en,ar,v])=>`<tr class="${num(v)?'':'z'}"><td class="lb"><b>${ar}</b><small>${en}</small></td><td class="am">${num(v)?money(v):'—'}</td></tr>`).join('');
@@ -2410,7 +2414,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793108874';
+const BUILD_ID='1793178109';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
