@@ -555,8 +555,8 @@ function payrollRow(emp,m,y){
  const cl=DB.cl_staff.filter(c=>String(c.emp_id)===String(emp.emp_id)&&OKST.includes(c.status)&&inPeriod(c.date,m,y)).reduce((s,c)=>s+num(c.amount),0);
  const totalDed=r2(custom+unpaidDed+insSick);
  /* monthly tax brackets on (gross − insurance − 5000):
-    0 → 1,250 = 10% · 1,250 → 2,250 = 15% · 2,250 → 10,833.33 = 20% · 10,833.33 → 16,666.67 = 22% · above 16,666.67 = 25% */
- let tax=0;if(applyTax){const t=gross-ins-5000;if(t>0){const B=[[1250,0.10],[2250,0.15],[10833.33,0.20],[16666.67,0.22],[Infinity,0.25]];let lo=0;for(const [hi,rt] of B){if(t<=lo)break;tax+=(Math.min(t,hi)-lo)*rt;lo=hi}}}
+    0 → 1,250 = 10% · 1,250 → 2,500 = 15% · 2,500 → 10,833.33 = 20% · 10,833.33 → 16,666.67 = 22% · above 16,666.67 = 25% */
+ let tax=0;if(applyTax){const t=gross-ins-5000;if(t>0){const B=[[1250,0.10],[2500,0.15],[10833.33,0.20],[16666.67,0.22],[Infinity,0.25]];let lo=0;for(const [hi,rt] of B){if(t<=lo)break;tax+=(Math.min(t,hi)-lo)*rt;lo=hi}}}
  tax=r2(tax);
  const net=round5(gross-ins-health-penalties-absent-sick-advances-cl-totalDed-tax);
  return {code:emp.bank_code||emp.emp_id,emp_id:emp.emp_id,name:emp.name,dept:deptName(emp.department),basic:fSal,transport:fTr,allowances:fAl,service:r2(service+(fSvc-r2(fSvc*pf))),gross:r2(gross+notWorked),insurance:ins,health,penalties,absent:r2(absent+notWorked),notWorked,sick,advances:r2(advances),deductions:totalDed,cl_staff:r2(cl),tax,net,applyIns,applyTax,sickDays,unpaidDays,insSickDays,days,fullBasic:num(emp.salary)}}
@@ -2422,7 +2422,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793181547';
+const BUILD_ID='1793182433';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
