@@ -94,7 +94,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl tbody tr:nth-child(even){background:#F8FAFC}
 .tbl tbody tr:hover{background:#EEF2FF}
 .tbl td.empty{color:var(--mut);padding:30px}
-.tbl tr.sub td{background:#C7D2FE;font-weight:800}.tbl tr.grand td{background:#1E3A5F;color:#fff;font-weight:800}.tbl tr.dept td{background:#EEF2FF;color:#3730A3;font-weight:800;text-align:start}
+.tbl tr.sub td{background:#C7D2FE;color:#000;font-weight:900;font-size:13.5px}.tbl tr.grand td{background:#A5B4FC;color:#000;font-weight:900;font-size:14.5px;border-top:2px solid #000;border-bottom:2px solid #000}.tbl tr.dept td{background:#EEF2FF;color:#3730A3;font-weight:800;text-align:start}
 .tbl .acts{display:flex;gap:4px;justify-content:center;flex-wrap:wrap}
 .tbl img.av{width:34px;height:34px;border-radius:50%;object-fit:cover;vertical-align:middle}
 .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:800}
@@ -228,8 +228,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .pdoc th{background:#1E3A5F;color:#fff;padding:6px 4px;font-size:10.5px;border:1px solid #1E3A5F;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pdoc td{border:1px solid #CBD5E1;padding:5px 4px;font-size:10.5px;text-align:center}
 .pdoc td.k{background:#F1F5F9;font-weight:700;text-align:start;width:32%;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.pdoc tr.sub td{background:#C7D2FE;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.pdoc tr.grand td{background:#1E3A5F;color:#fff;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pdoc tr.sub td{background:#C7D2FE;color:#000;font-weight:900;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pdoc tr.grand td{background:#A5B4FC;color:#000;font-weight:900;font-size:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pdoc tr.dept td{background:#EEF2FF;font-weight:700;text-align:start;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pdoc .sigs{display:flex;gap:30px;margin-top:50px}.pdoc .sigs div{flex:1;text-align:center;border-top:1px solid #333;padding-top:6px;font-weight:700}
 .pdoc .foot{text-align:center;color:#888;font-size:9px;margin-top:20px}
@@ -1105,7 +1105,7 @@ function monthlyPage(p){let [y,m]=(p||'').split('-').map(Number);if(!m){[m,y]=cu
  const data=monthlyData(m,y);const rows=mrRows(data);const [ps,pe]=periodBounds(m,y);
  const html=rows.map(r=>r.cls==='dept'?{cls:'dept',c:[esc(r.c[0])],span:18}:{cls:r.cls||'',c:r.c.map((c,i)=>i===17?`<b>${esc(c)}</b>`:i===2?esc(tv(c)):esc(c))});
  S.tmp.mr={m,y,rows};
- return head('📊',L('Monthly Report','التقرير الشهري'),`${monthName(m)} ${y} — ${L('Period','الفترة')}: ${dmy(ps)} → ${dmy(pe)}`,'#2563EB',btn('← '+L('Back','رجوع'),"go('payroll')",'ghost')+btn('🖨️ '+L('Print','طباعة'),'printMR()','ghost')+btn('📊 Excel','xlsMR()','ghost')+btn('🗄️ '+L('Archive Now','أرشفة الآن'),`archiveSnapshot(${m},${y},true);log('Archive month','${pad(m)}-${y}','payroll');saveDB();notify(L('Month archived','تمت أرشفة الشهر'))`,'ghost'))
+ return head('📊',L('Monthly Report','التقرير الشهري'),`${monthName(m)} ${y} — ${L('Salary','المرتب')}: ${dmy(new Date(y,m-1,1))} → ${dmy(new Date(y,m,0))} · ${L('Attendance / advances / penalties','الحضور / السلف / الجزاءات')}: ${dmy(ps)} → ${dmy(pe)}`,'#2563EB',btn('← '+L('Back','رجوع'),"go('payroll')",'ghost')+btn('🖨️ '+L('Print','طباعة'),'printMR()','ghost')+btn('📊 Excel','xlsMR()','ghost')+btn('🗄️ '+L('Archive Now','أرشفة الآن'),`archiveSnapshot(${m},${y},true);log('Archive month','${pad(m)}-${y}','payroll');saveDB();notify(L('Month archived','تمت أرشفة الشهر'))`,'ghost'))
  +`<div class="wrap"><div class="filters">${fld(L('Month','الشهر'),monthSel('mm',m))}${fld(L('Year','السنة'),`<input type="number" id="my" value="${y}">`)}${btn('🔍 '+L('Show','عرض'),"go('payroll/monthly/'+$('#my').value+'-'+$('#mm').value)",'p')}</div>
  <div class="stats">${[['👥',L('Employees','الموظفون'),data.length,'#2563EB'],['💰',L('Total gross','إجمالي المستحق'),money(data.reduce((s,r)=>s+num(r[7]),0)),'#059669'],['➖',L('Total insurance','إجمالي التأمينات'),money(data.reduce((s,r)=>s+num(r[8]),0)),'#D97706'],['✅',L('Total net','إجمالي الصافي'),money(data.reduce((s,r)=>s+num(r[17]),0)),'#0F766E']].map(s=>`<div class="stat"><div class="ic" style="background:${s[3]}">${s[0]}</div><div><div class="v" style="font-size:20px">${s[2]}</div><div class="l">${s[1]}</div></div></div>`).join('')}</div>
  ${searchBox('tmr')}${table(mrHead(),html,{id:'tmr',cards:false})}</div>`}
@@ -2415,6 +2415,71 @@ function attDedupe(){if(!DB||!Array.isArray(DB.attendance)||!DB.attendance.lengt
 let _ddLen=-1,_ddT=0;
 function attDedupeTick(){if(!S.user||!DB||!isAdmin())return;const n=(DB.attendance||[]).length;if(n===_ddLen&&Date.now()-_ddT<10*60000)return;_ddLen=n;_ddT=Date.now();try{attDedupe();_ddLen=(DB.attendance||[]).length}catch(e){console.warn('attDedupe',e)}}
 setInterval(attDedupeTick,20000);setTimeout(attDedupeTick,8000);
+/* ═══════════ Styled Excel for every report (same look as "Monthly Salary Report") ═══════════
+   title bar (navy) · generated line · purple header · department rows · striped employee rows ·
+   totals in BLACK BOLD on light purple, grand total bigger. Not used by the Monthly Attendance sheet
+   and the Head Department sheet (they keep their own layout — asExcel). Offline → the plain export. */
+const XS={navy:'1E3A5F',purple:'7C3AED',dept:'EEF2FF',deptTx:'3730A3',stripe:'F5F3FF',sub:'C7D2FE',grand:'A5B4FC',grey:'94A3B8'};
+const xsFill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:'FF'+c}});
+const xsThin={style:'thin',color:{argb:'FF94A3B8'}},xsBd={top:xsThin,left:xsThin,bottom:xsThin,right:xsThin};
+const XS_MONEY=/health|ins\.|salary|amount|basic|net|total|tax|insurance|allow|transport|service|penalt|advance|deduct|absent|sick|gross|repaid|extra|cl staff|مرتب|مبلغ|أساسي|اساسي|صافي|إجمالي|اجمالي|ضريب|تأمين|تامين|بدل|انتقال|خدمة|جزاء|سلف|خصم|غياب|مرضي|مسدد|إضافي/i;
+const XS_TOTAL=/^(total|subtotal|grand total|الإجمالي|إجمالي|الاجمالي|اجمالي|الإجمالي العام|إجمالي القسم)\b/i;
+function xsCol(n){let s='';while(n>0){const r=(n-1)%26;s=String.fromCharCode(65+r)+s;n=Math.floor((n-1)/26)}return s}
+/* one sheet. spec = {name,title,sub,cols,rows:[{c:[...],cls:'dept'|'sub'|'grand'|''}], plain:true (header only, no title)} */
+function xsSheet(wb,spec,used){let n=String(spec.name||'Sheet').replace(/[\[\]:*?\/\\]/g,' ').slice(0,31)||'Sheet';let b=n,i=1;while(used.has(n)){n=b.slice(0,27)+' ('+(++i)+')'}used.add(n);
+ const W=Math.max(1,spec.cols.length);const top=spec.plain?0:2;
+ const ws=wb.addWorksheet(n,{views:[{state:'frozen',ySplit:top+1,rightToLeft:S.lang==='ar'}],pageSetup:{orientation:W>8?'landscape':'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,margins:{left:.3,right:.3,top:.4,bottom:.4,header:.2,footer:.2}}});
+ const money=spec.cols.map((h,i)=>i>=2&&XS_MONEY.test(String(h))&&!/code|كود|days|أيام|يوم/i.test(String(h)));
+ if(!spec.plain){
+  const t=ws.addRow([spec.title||n]);ws.mergeCells(1,1,1,W);t.height=30;const tc=t.getCell(1);tc.font={name:'Calibri',size:16,bold:true,color:{argb:'FFFFFFFF'}};tc.fill=xsFill(XS.navy);tc.alignment={horizontal:'center',vertical:'middle'};
+  const g=ws.addRow([spec.sub||`Al-Moudira HR  |  ${L('Generated','تاريخ الإنشاء')}: ${nowDisp()}`]);ws.mergeCells(2,1,2,W);g.height=16;const gc=g.getCell(1);gc.font={name:'Calibri',size:9,color:{argb:'FF'+XS.grey}};gc.alignment={horizontal:'center',vertical:'middle'}}
+ const h=ws.addRow(spec.cols);h.height=24;for(let c=1;c<=W;c++){const ce=h.getCell(c);ce.font={name:'Calibri',size:10,bold:true,color:{argb:'FFFFFFFF'}};ce.fill=xsFill(XS.purple);ce.border=xsBd;ce.alignment={horizontal:'center',vertical:'middle',wrapText:true}}
+ const widths=spec.cols.map(c=>String(c||'').length+2);let k=0,grpStart=top+2;const subRows=[];
+ const numOf=v=>{if(typeof v==='number')return v;if(typeof v==='string'&&/^-?[\d,]+(\.\d+)?$/.test(v.trim())&&v.trim()!=='')return num(v);return null};
+ spec.rows.forEach(r=>{const cells=(r.c||r).slice(0,W);const cls=r.cls||'';
+  if(cls==='dept'){const row=ws.addRow(['  '+String(cells[0]||'').replace(/^🏢\s*/,'')]);ws.mergeCells(row.number,1,row.number,W);row.height=20;const ce=row.getCell(1);ce.font={name:'Calibri',size:11,bold:true,color:{argb:'FF'+XS.deptTx}};ce.fill=xsFill(XS.dept);ce.border=xsBd;ce.alignment={horizontal:'left',vertical:'middle'};grpStart=row.number+1;k=0;return}
+  const isTot=cls==='sub'||cls==='grand';
+  const vals=cells.map((v,ci)=>{const x=numOf(v);if(x!=null&&(money[ci]||isTot||(typeof v==='number')))return x;if(x!=null&&ci<2&&/^\d+$/.test(String(v).trim())&&String(v).trim().length<10&&!/^0/.test(String(v).trim()))return x;return v==null?'':v});
+  const row=ws.addRow(vals);const rn=row.number;
+  if(cls==='sub'&&grpStart&&grpStart<rn){for(let c=1;c<=W;c++)if(money[c-1]&&typeof vals[c-1]==='number')row.getCell(c).value={formula:`SUM(${xsCol(c)}${grpStart}:${xsCol(c)}${rn-1})`,result:vals[c-1]};subRows.push(rn);grpStart=null}
+  if(cls==='grand'&&!subRows.length&&rn>top+2){for(let c=1;c<=W;c++)if(money[c-1]&&typeof vals[c-1]==='number')row.getCell(c).value={formula:`SUM(${xsCol(c)}${top+2}:${xsCol(c)}${rn-1})`,result:vals[c-1]}}
+  if(cls==='grand'&&subRows.length){for(let c=1;c<=W;c++)if(money[c-1]&&typeof vals[c-1]==='number')row.getCell(c).value={formula:subRows.map(x=>xsCol(c)+x).join('+'),result:vals[c-1]}}
+  for(let c=1;c<=W;c++){const ce=row.getCell(c);ce.border=xsBd;const v=vals[c-1];
+   ce.alignment={horizontal:typeof v==='number'||c===1?'center':'left',vertical:'middle'};
+   if(typeof v==='number'&&(money[c-1]||isTot||!Number.isInteger(v)))ce.numFmt='#,##0.00';
+   if(isTot){ce.font={name:'Calibri',size:cls==='grand'?12:11,bold:true,color:{argb:'FF000000'}};ce.fill=xsFill(cls==='grand'?XS.grand:XS.sub);if(cls==='grand')ce.border={top:{style:'medium',color:{argb:'FF000000'}},bottom:{style:'medium',color:{argb:'FF000000'}},left:xsThin,right:xsThin}}
+   else{ce.fill=xsFill(k%2?'FFFFFF':XS.stripe);ce.font={name:'Calibri',size:11,bold:c===W&&money[c-1]}}
+   const L0=typeof v==='number'?v.toLocaleString('en-US',{maximumFractionDigits:2}).length+3:String(v??'').length+2;if(L0>widths[c-1]&&!(isTot&&c<=3&&typeof v!=='number'))widths[c-1]=L0}
+  if(isTot&&W>3&&(vals[1]===''||vals[1]==null)&&(vals[2]===''||vals[2]==null)){ws.mergeCells(rn,1,rn,3);row.getCell(1).alignment={horizontal:'left',vertical:'middle',indent:1}}
+  row.height=isTot?(cls==='grand'?24:20):18;if(!isTot)k++});
+ widths.forEach((w,i)=>{ws.getColumn(i+1).width=Math.min(48,Math.max(money[i]?13:8,w+(money[i]?3:0)))});
+ if(!spec.plain&&spec.rows.length&&!spec.rows.some(r=>r.cls))ws.autoFilter={from:{row:top+1,column:1},to:{row:top+1,column:W}};
+ return ws}
+/* turn the old {name,aoa,hdr} sheets into styled specs */
+function xsFromAoa(s){const aoa=s.aoa||[];if(s.hdr==null){return {name:s.name,plain:true,cols:(aoa[0]||[]).map(x=>x==null?'':x),rows:aoa.slice(1).map(c=>({c}))}}
+ const hdr=s.hdr,cols=(aoa[hdr]||[]).map(x=>x==null?'':x),W=cols.length;
+ const rows=aoa.slice(hdr+1).map(c=>{c=c||[];const filled=c.filter(x=>x!==''&&x!=null).length;const lead=String(c[0]??'')+' '+String(c[1]??'');
+  if(filled===1&&W>2&&c[0]!==''&&c[0]!=null&&typeof c[0]==='string'&&isNaN(+c[0]))return {c,cls:'dept'};
+  if(XS_TOTAL.test(String(c[0]??'').trim())||XS_TOTAL.test(String(c[1]??'').trim()))return {c,cls:/grand|العام/i.test(lead)?'grand':'sub'};return {c}});
+ /* reports with amounts get a TOTAL row (only the money columns are added up) */
+ const data=rows.filter(r=>!r.cls);if(!rows.some(r=>r.cls)&&data.length>1){const mi=cols.map((h,i)=>i>=2&&XS_MONEY.test(String(h))&&!/code|كود|days|أيام|يوم/i.test(String(h)));
+  if(mi.some(Boolean)){const T=cols.map((_,i)=>mi[i]?r2(data.reduce((a,r)=>a+num((r.c||[])[i]),0)):'');T[0]=`${L('Total','الإجمالي')}  (${data.length})`;if(mi[1])T[1]=T[1];else T[1]='';if(!mi[2])T[2]='';rows.push({cls:'grand',c:T})}}
+ return {name:s.name,title:String((aoa[0]||[])[0]??s.name),sub:hdr>=2?`Al-Moudira HR  |  ${String((aoa[1]||[])[0]??'')}`:'',cols,rows}}
+async function xsWrite(name,specs){const X=await loadExcelJS();const wb=new X.Workbook();wb.creator='Al-Moudira HR';const used=new Set();specs.forEach(sp=>xsSheet(wb,sp,used));
+ const buf=await wb.xlsx.writeBuffer();dlBlob(name,new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}))}
+/* every export goes through here */
+const _xlsxOutPlain=xlsxOut;
+xlsxOut=function(name,sheets){notify('⏳ Excel…','info');xsWrite(name,sheets.map(s=>s.styled?s.styled:xsFromAoa(s))).catch(e=>{console.warn('styled excel',e);_xlsxOutPlain(name,sheets)})};
+/* Monthly salary report — departments, subtotal per department (SUM), grand total; one extra sheet per department */
+xlsMR=function(rowsArg,m,y){if(!rowsArg){({m,y}=S.tmp.mr);rowsArg=S.tmp.mr.rows}
+ const cols=mrHead();const title=`${L('Monthly Salary Report','تقرير المرتبات الشهري')} — ${MONTHS_EN[m-1]} ${y}`;const [ps,pe]=periodBounds(m,y);
+ const sub=`Al-Moudira HR  |  ${L('Salary','المرتب')}: ${dmy(new Date(y,m-1,1))} → ${dmy(new Date(y,m,0))}  |  ${L('Generated','تاريخ الإنشاء')}: ${nowDisp()}`;
+ const lab=r=>{if(r.cls==='sub'){const n=r._n||0;return [`${L('Total','إجمالي')} ${r.c[2]}  (${n} ${L('employees','موظف')})`,'','',...r.c.slice(3)]}if(r.cls==='grand')return [`${L('GRAND TOTAL','الإجمالي العام')}  (${r.c[2]} ${L('employees','موظف')})`,'','',...r.c.slice(3)];return r.c};
+ let cnt=0;const rows=rowsArg.map(r=>{if(r.cls==='dept'){cnt=0;return {cls:'dept',c:[String(r.c[0]).replace(/\s*\(\d+\)$/,'')]}}if(!r.cls){cnt++;return {c:r.c}}const o={cls:r.cls,c:r.c,_n:cnt};return {cls:r.cls,c:lab(o)}});
+ const specs=[{name:`${MONTHS_EN[m-1].slice(0,3)} ${y}`,title,sub,cols,rows}];
+ groupByDept(rowsArg.filter(r=>!r.cls).map(r=>r.c)).forEach(([dn,rs])=>{const T=Array(18).fill(0);rs.forEach(r=>{for(let i=3;i<18;i++)T[i]+=num(r[i])});
+  specs.push({name:tv(dn),title:`${tv(dn)} — ${MONTHS_EN[m-1]} ${y}`,sub,cols,rows:[...rs.map(c=>({c})),{cls:'sub',c:[`${L('Total','إجمالي')} ${tv(dn)}  (${rs.length} ${L('employees','موظف')})`,'','',...T.slice(3).map(v=>r2(v))]}]})});
+ xlsxOut(`Monthly_Salary_${MONTHS_EN[m-1]}_${y}.xlsx`,specs.map(sp=>({name:sp.name,aoa:[[sp.title],[sp.sub],[],sp.cols,...sp.rows.map(r=>r.c)],hdr:3,styled:sp})))};
 
 /* ═══════════════════ ONLINE MULTI-USER ENGINE ═══════════════════
    All users work at the same time. Every change is detected per record,
@@ -2425,7 +2490,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793183821';
+const BUILD_ID='1793268616';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
