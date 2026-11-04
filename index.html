@@ -2074,7 +2074,7 @@ ROUTES.attsheet=(per,mode)=>{S.tmp.asMode=mode==='heads'?'heads':'';const MS=mod
  const pm=m===1?`${y-1}-12`:`${y}-${pad(m-1)}`,nm=m===12?`${y+1}-01`:`${y}-${pad(m+1)}`;
  const inp=(id,f,v)=>`<input class="asin" type="number" step="any" title="${esc(L('Click to edit','اضغط للتعديل'))}" value="${v==null?'':v}" onchange="asSet('${esc(id)}','${f}',this.value,${y},${m})">`;
  const H=asHead(last,true);
- const body=groups.map(g=>`<tr class="asdep"><td colspan="${last+14}">🏢 ${esc(g.dep)} <span>(${g.rows.length})</span></td></tr>`+g.rows.map(r=>`<tr><td>${r.n}</td><td><b>${esc(r.e.emp_id)}</b></td><td class="asnm">${esc(r.e.name)}${r.hd?` <small class="muted">— ${esc(r.hd)}</small>`:''}</td><td class="asob">${inp(r.e.emp_id,'ob',asI(r.ob))}</td>${r.c.map(cellR(r)).join('')}<td class="asb"><b>${asI(r.cb)}</b></td><td class="asob"${r.crAuto?` title="${esc(L('Official holidays worked','أيام شغل في إجازات رسمية')+': +'+r.crAuto+(r.crMan?' · '+L('manual','يدوي')+': '+r.crMan:''))}"`:''}>${r.crAuto?`<div style="display:flex;align-items:center;justify-content:center;gap:2px">${inp(r.e.emp_id,'cr',asI(r.crMan)||'')}<small style="color:#059669;font-weight:800;white-space:nowrap">+${r.crAuto}</small></div>`:inp(r.e.emp_id,'cr',asI(r.cr)||'')}</td><td class="asb"><b>${asI(r.nb)}</b></td>${AS_CODES.map(k=>`<td>${r.cnt[k]}</td>`).join('')}</tr>`).join('')
+ const body=groups.map(g=>`<tr class="asdep"><td colspan="${last+14}">🏢 ${esc(g.dep)} <span>(${g.rows.length})</span></td></tr>`+H+g.rows.map(r=>`<tr><td>${r.n}</td><td><b>${esc(r.e.emp_id)}</b></td><td class="asnm">${esc(r.e.name)}${r.hd?` <small class="muted">— ${esc(r.hd)}</small>`:''}</td><td class="asob">${inp(r.e.emp_id,'ob',asI(r.ob))}</td>${r.c.map(cellR(r)).join('')}<td class="asb"><b>${asI(r.cb)}</b></td><td class="asob"${r.crAuto?` title="${esc(L('Official holidays worked','أيام شغل في إجازات رسمية')+': +'+r.crAuto+(r.crMan?' · '+L('manual','يدوي')+': '+r.crMan:''))}"`:''}>${r.crAuto?`<div style="display:flex;align-items:center;justify-content:center;gap:2px">${inp(r.e.emp_id,'cr',asI(r.crMan)||'')}<small style="color:#059669;font-weight:800;white-space:nowrap">+${r.crAuto}</small></div>`:inp(r.e.emp_id,'cr',asI(r.cr)||'')}</td><td class="asb"><b>${asI(r.nb)}</b></td>${AS_CODES.map(k=>`<td>${r.cnt[k]}</td>`).join('')}</tr>`).join('')
   +`<tr class="astot"><td colspan="4">Total present</td>${g.tot.map(n=>`<td>${n}</td>`).join('')}<td colspan="3"></td>${AS_CODES.map(k=>`<td>${g.sums[k]}</td>`).join('')}</tr>`).join('')
   ||`<tr><td colspan="${last+14}" class="empty">${mode==='heads'?L('No department managers chosen yet — open Departments, edit each department and choose its Manager.','مفيش مدير قسم متحدد لسه — افتح الأقسام، وعدّل كل قسم واختار المدير بتاعه.'):L('No records found','لا توجد سجلات')}</td></tr>`;
  const gt=[];for(let d=0;d<last;d++)gt.push(all.filter(r=>r.c[d]==='P').length);
@@ -2085,30 +2085,30 @@ ROUTES.attsheet=(per,mode)=>{S.tmp.asMode=mode==='heads'?'heads':'';const MS=mod
   <div class="fld"><label>${L('Department','القسم')}</label>${sel('asdep',deptOpts(),S.tmp.asDep||'',L('All departments (each one separate)','كل الأقسام (كل قسم لوحده)'),`onchange="S.tmp.asDep=this.value;render()"`)}</div>
   <div class="fld" style="flex:2"><label>${L('Search','بحث')}</label><input type="text" value="${esc(S.srch.tas||'')}" placeholder="${esc(L('Code or name','الكود أو الاسم'))}" oninput="S.srch.tas=this.value;clearTimeout(S.tmp._asq);S.tmp._asq=setTimeout(()=>{const p=this.selectionStart;render();const n=document.querySelector('.filters input[type=text]');if(n){n.focus();try{n.setSelectionRange(p,p)}catch(e){}}},350)"></div></div>
   <div class="aslg">${AS_CODES.map(k=>`<span style="background:${AS_COLOR[k][0]};color:${AS_COLOR[k][1]}">${k}</span> ${{V:L('Vacation','إجازة سنوية'),P:L('Present','حاضر'),S:L('Sick / special','مرضي / خاصة'),X:L('Absent','غياب'),PH:L('Public holiday','عطلة رسمية'),U:L('Unpaid','بدون أجر'),O:L('Day Off','راحة')}[k]}`).join(' &nbsp; ')} · <span class="asmiss" style="border:1px solid #CBD5E1">·</span> ${L('nothing recorded yet','لسه مفيش تسجيل')} · <span style="background:#E2E8F0;color:#64748B;border:1px solid #CBD5E1">—</span> ${L('before hire / away from work (Suspension)','قبل التعيين / منقطع عن العمل')} · <span style="border:1px solid #CBD5E1;background:#fff">&nbsp;</span> ${L('coming days','أيام جاية')} · <span class="muted">${L('OB and CR are editable','OB و CR تقدر تعدّلهم')}</span></div>
-  <div class="tbl-wrap"><table class="tbl assh" dir="ltr"><thead>${H}</thead><tbody>${body}${grand}</tbody></table></div></div>`};
+  <div class="tbl-wrap"><table class="tbl assh" dir="ltr">${groups.length?'':`<thead>${H}</thead>`}<tbody>${body}${grand}</tbody></table></div></div>`};
 function asPrint(y,m){const {groups,last}=asGroups(y,m);
  const c=x=>{const k=AS_COLOR[x];return `<td${k?` style="background:${k[0]};color:${k[1]}"`:''}>${x||''}</td>`};
  const H=asHead(last,false);
  printRaw(`<style>@media print{@page{size:A4 landscape;margin:6mm}}.asp{font-family:Calibri,Arial,sans-serif;direction:ltr}.asp h2{margin:0 0 6px;font-size:15px;text-align:center}.asp table{border-collapse:collapse;width:100%}.asp th,.asp td{border:1px solid #333;padding:1px 2px;text-align:center;font-size:9px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.asp th{background:#fff;font-weight:700}.asp .nm{text-align:left;white-space:nowrap}.asp .tot td{background:#FFFF00;font-weight:700}.asp .dep td{background:#1E3A5F;color:#fff;font-weight:700;text-align:left;font-size:10px}</style>
- <div class="asp"><h2>${esc(DB.settings.company||'')} — ${S.tmp.asMode==='heads'?'Head Department Attendance':L('Attendance','الحضور')} ${monthName(m)} ${y}</h2><table><thead>${H}</thead><tbody>${groups.map(g=>`<tr class="dep"><td colspan="${last+14}">${esc(g.dep)}</td></tr>
+ <div class="asp"><h2>${esc(DB.settings.company||'')} — ${S.tmp.asMode==='heads'?'Head Department Attendance':L('Attendance','الحضور')} ${monthName(m)} ${y}</h2><table><tbody>${groups.map(g=>`<tr class="dep"><td colspan="${last+14}">${esc(g.dep)}</td></tr>${H}
  ${g.rows.map(r=>`<tr><td>${r.n}</td><td><b>${esc(r.e.emp_id)}</b></td><td class="nm">${esc(r.e.name)}${r.hd?' — '+esc(r.hd):''}</td><td>${asI(r.ob)}</td>${r.c.map(c).join('')}<td><b>${asI(r.cb)}</b></td><td>${asI(r.cr)||''}</td><td><b>${asI(r.nb)}</b></td>${AS_CODES.map(k=>`<td>${r.cnt[k]}</td>`).join('')}</tr>`).join('')}
  <tr class="tot"><td colspan="4">Total present</td>${g.tot.map(n=>`<td>${n}</td>`).join('')}<td colspan="3"></td>${AS_CODES.map(k=>`<td>${g.sums[k]}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`,'ltr')}
 function loadExcelJS(){return new Promise((ok,bad)=>{if(window.ExcelJS)return ok(window.ExcelJS);const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';s.onload=()=>ok(window.ExcelJS);s.onerror=()=>bad(new Error(L('Could not load the Excel library — check the internet','تعذر تحميل مكتبة Excel — تأكد من الإنترنت')));document.head.appendChild(s)})}
 async function asExcel(y,m){let X;try{notify('⏳ Excel…','info');X=await loadExcelJS()}catch(e){notify(e.message,'err');return}
  const {groups,last,all}=asGroups(y,m);const wb=new X.Workbook();
- const ws=wb.addWorksheet(`${S.tmp.asMode==='heads'?'Heads ':''}${pad(m)}-${y}`,{views:[{state:'frozen',xSplit:3,ySplit:1}]});         // ONE sheet — departments one after another
+ const ws=wb.addWorksheet(`${S.tmp.asMode==='heads'?'Heads ':''}${pad(m)}-${y}`,{views:[{state:'frozen',xSplit:3,ySplit:0}]});         // ONE sheet — departments one after another
  const col=n=>{let s='';n++;while(n>0){const r=(n-1)%26;s=String.fromCharCode(65+r)+s;n=Math.floor((n-1)/26)}return s};   // 0-based index → letter
  const dc0=4,dcN=3+last,cCB=4+last,cCR=cCB+1,cNB=cCB+2,cK=cCB+3,W=cK+AS_CODES.length;
  const thin={style:'thin',color:{argb:'FF000000'}},bd={top:thin,left:thin,bottom:thin,right:thin};
  const fill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:'FF'+c.replace('#','')}});
  const style=(row,kind)=>{row.height=kind==='h'?22.5:23.25;for(let cn=1;cn<=W;cn++){const ce=row.getCell(cn);ce.border=bd;ce.alignment={horizontal:cn===3&&kind==='r'?'left':'center',vertical:'middle'};
    const keep=ce.font&&ce.font.color?{color:ce.font.color}:{};ce.font=Object.assign({name:'Calibri',size:kind==='h'?14:12,bold:kind!=='r'||cn===2},keep)}};
- const hr=ws.addRow(['NO','CL.NO','NAME','OB',...asPeriod(y,m).days.map(d=>d.getDate()),'CB','CR','NB',...AS_CODES]);style(hr,'h');
- for(let cn=1;cn<=W;cn++){const z=cn-1;hr.getCell(cn).fill=fill(z===3||z===cCB||z===cCR||z===cNB?AS_HG:(z>=cK&&z<cK+AS_CODES.length)?AS_HC:AS_HW)}
+ const addHead=()=>{const hr=ws.addRow(['NO','CL.NO','NAME','OB',...asPeriod(y,m).days.map(d=>d.getDate()),'CB','CR','NB',...AS_CODES]);style(hr,'h');
+ for(let cn=1;cn<=W;cn++){const z=cn-1;hr.getCell(cn).fill=fill(z===3||z===cCB||z===cCR||z===cNB?AS_HG:(z>=cK&&z<cK+AS_CODES.length)?AS_HC:AS_HW)}return hr};   // header repeated under every department title
  const totRows=[];
  for(const g of groups){
   const dr=ws.addRow([g.dep]);ws.mergeCells(dr.number,1,dr.number,W);style(dr,'d');dr.getCell(1).fill=fill('#1E3A5F');dr.getCell(1).font={name:'Calibri',size:13,bold:true,color:{argb:'FFFFFFFF'}};dr.getCell(1).alignment={horizontal:'left',vertical:'middle',indent:1};
-  const first=dr.number+1;
+  const first=addHead().number+1;
   g.rows.forEach(r=>{const cid=isNaN(+r.e.emp_id)?r.e.emp_id:+r.e.emp_id;const row=ws.addRow([r.n,cid,r.e.name+(r.hd?' — '+r.hd:''),asI(r.ob),...r.c,null,asI(r.cr)||null,null,...AS_CODES.map(()=>null)]);const rn=row.number;const rng=`${col(dc0)}${rn}:${col(dcN)}${rn}`;
    AS_CODES.forEach((k,j)=>{row.getCell(cK+j+1).value={formula:`COUNTIF(${rng},"${k}")`,result:r.cnt[k]}});
    row.getCell(cCB+1).value={formula:`${col(3)}${rn}-${col(cK)}${rn}-${col(cK+6)}${rn}`,result:asI(r.cb)};
@@ -2120,7 +2120,7 @@ async function asExcel(y,m){let X;try{notify('⏳ Excel…','info');X=await load
   ws.mergeCells(tr.number,3,tr.number,4);style(tr,'t');for(let cn=3;cn<=dcN+1;cn++)tr.getCell(cn).fill=fill('#FFFF00');totRows.push(tr.number)}
  if(groups.length>1){const gt=ws.addRow(['','','GRAND TOTAL','',...Array.from({length:last},(_,d)=>({formula:totRows.map(r=>`${col(dc0+d)}${r}`).join('+'),result:all.filter(r=>r.c[d]==='P').length})),null,null,null,...AS_CODES.map((k,j)=>({formula:totRows.map(r=>`${col(cK+j)}${r}`).join('+'),result:all.reduce((a,r)=>a+r.cnt[k],0)}))]);
   ws.mergeCells(gt.number,3,gt.number,4);style(gt,'t');for(let cn=1;cn<=W;cn++)gt.getCell(cn).fill=fill('#FFD966')}
- ws.pageSetup={paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:.2,right:.2,top:.3,bottom:.3,header:.1,footer:.1},printTitlesRow:'1:1'};
+ ws.pageSetup={paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:.2,right:.2,top:.3,bottom:.3,header:.1,footer:.1}};
  ws.columns.forEach((c,i)=>{c.width=i===0?7.1:i===1?7.4:i===2?42:i===3?7.3:(i>=dc0&&i<=dcN)?4.6:7.5});
  const buf=await wb.xlsx.writeBuffer();dlBlob(`${S.tmp.asMode==='heads'?'Head_Department_Attendance':'Attendance'}_${y}-${pad(m)}.xlsx`,new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));notify(L('Excel downloaded','تم تنزيل ملف Excel'))}
 /* ═══════════ Official (public) holidays ═══════════
@@ -2523,7 +2523,7 @@ const ON_ARRS=['attendance','leaves','payrolls','advances','cl_staff','penalties
 const ON_MAPS=['employees','departments','monthly_snapshots','custom_users','user_permissions','user_passwords','settings','archived_employees','mobile_punch_pins','mobile_leave_map','zk_inbox','att_sheet','public_holidays'];
 const ON_ROOT=['job_titles','disabled_users','insurance_settings','zk_devices','password','mobile_punch'];
 const ON_LOCAL_SETTINGS=['sync_url','sync_key'];
-const BUILD_ID='1793777403';
+const BUILD_ID='1793786711';
 const ONL={cfg:null,ver:0,shadow:null,busy:false,again:false,timer:null,loop:null,online:[],status:'off',err:'',lastOk:0,client:'',dirtyUI:false,pendingN:0};
 function onCfg(){if(!ONL.cfg){let c={};try{c=JSON.parse(ST.get('modo_hr_online')||'{}')||{}}catch(e){}if(!c.url&&DB&&DB.settings.sync_url){c.url=DB.settings.sync_url;c.key=DB.settings.sync_key}ONL.cfg=Object.assign({url:'',key:''},c)}return ONL.cfg}
 function onSaveCfg(c){ONL.cfg=c;ST.set('modo_hr_online',JSON.stringify(c))}
