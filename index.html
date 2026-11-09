@@ -2035,7 +2035,9 @@ function asMonthCodes(y,m,emps){const {ps,pe,days}=asPeriod(y,m),ids=new Set(emp
   const has=String(a.check_in||'').trim()||String(a.check_out||'').trim();const c=has?'P':asCodeOf(a.status);const k=id+'|'+asDayKey(d);if(c&&(!att[k]||c==='P'))att[k]=c}
  for(const l of DB.leaves){if(!APPROVED.includes(l.status))continue;const id=String(l.emp_id);if(!ids.has(id))continue;let s=parseD(l.start_date),e=parseD(l.end_date);if(!s||!e)continue;
   if(e<ps||s>pe)continue;if(s<ps)s=ps;if(e>pe)e=pe;const c=asCodeOf(l.leave_type)||'V';for(let d=new Date(s);d<=e;d=addDays(d,1))lv[id+'|'+asDayKey(d)]=c}
- const out={};for(const e of emps){const id=String(e.emp_id);out[id]=days.map(d=>{const k=id+'|'+asDayKey(d);return att[k]==='P'?'P':(lv[k]||att[k]||'')})}return out}
+ const out={};for(const e of emps){const id=String(e.emp_id);out[id]=asDoubleOff(days.map(d=>{const k=id+'|'+asDayKey(d);return att[k]==='P'?'P':(lv[k]||att[k]||'')}))}return out}
+/* two (or more) Day Off "O" in a row = a vacation: every O of that run becomes V */
+function asDoubleOff(a){let i=0;while(i<a.length){if(a[i]!=='O'){i++;continue}let j=i;while(j<a.length&&a[j]==='O')j++;if(j-i>=2)for(let k=i;k<j;k++)a[k]='V';i=j}return a}
 const _asMemo={};
 function asCodesFor(y,m,e){const sig=DB.attendance.length+'|'+DB.leaves.length+'|'+Object.keys(DB.employees).length+'|'+(S.rendered||'');const k=y+'-'+m;let c=_asMemo[k];
  if(!c||c.sig!==sig){c=_asMemo[k]={sig,map:asMonthCodes(y,m,Object.values(DB.employees))}}return c.map[String(e.emp_id)]||asMonthCodes(y,m,[e])[String(e.emp_id)]}
@@ -2106,7 +2108,17 @@ async function asExcel(y,m){let X;try{notify('⏳ Excel…','info');X=await load
  const addHead=()=>{const hr=ws.addRow(['NO','CL.NO','NAME','OB',...asPeriod(y,m).days.map(d=>d.getDate()),'CB','CR','NB',...AS_CODES]);style(hr,'h');
  for(let cn=1;cn<=W;cn++){const z=cn-1;hr.getCell(cn).fill=fill(z===3||z===cCB||z===cCR||z===cNB?AS_HG:(z>=cK&&z<cK+AS_CODES.length)?AS_HC:AS_HW)}return hr};   // header repeated under every department title
  const totRows=[];
- for(const g of groups){
+ const titleTxt=`${DB.settings.company||'Hadayek Tiba for Tourism — Hotel Al Moudira'} — ${S.tmp.asMode==='heads'?'Head Department Attendance':'Attendance'} ${monthName(m)} ${y}`;
+ const addTitle=()=>{const tr=ws.addRow([titleTxt]);ws.mergeCells(tr.number,1,tr.number,W);tr.height=30;const c=tr.getCell(1);c.font={name:'Calibri',size:16,bold:true};c.alignment={horizontal:'center',vertical:'middle'};ws.addRow([]).height=6};
+ /* signatures under every department block: label + a line to sign on */
+ const SIGS=['Head Department','Human Resources','Financial','General Manager'];
+ const addSigs=()=>{ws.addRow([]).height=14;const lab=ws.addRow([]);lab.height=24;const ln=ws.addRow([]);ln.height=46;const seg=Math.floor(W/SIGS.length);
+  SIGS.forEach((t,i)=>{const c1=i*seg+2,c2=Math.min((i+1)*seg,W);ws.mergeCells(lab.number,c1,lab.number,c2);ws.mergeCells(ln.number,c1,ln.number,c2);
+   const lc=lab.getCell(c1);lc.value=t;lc.font={name:'Calibri',size:13,bold:true};lc.alignment={horizontal:'center',vertical:'middle'};
+   for(let cn=c1;cn<=c2;cn++)ln.getCell(cn).border={bottom:{style:'thin',color:{argb:'FF000000'}}}})};
+ const brk=()=>{ws.getRow(ws.rowCount).addPageBreak()};
+ for(const [gi,g] of groups.entries()){
+  addTitle();
   const dr=ws.addRow([g.dep]);ws.mergeCells(dr.number,1,dr.number,W);style(dr,'d');dr.getCell(1).fill=fill('#1E3A5F');dr.getCell(1).font={name:'Calibri',size:13,bold:true,color:{argb:'FFFFFFFF'}};dr.getCell(1).alignment={horizontal:'left',vertical:'middle',indent:1};
   const first=addHead().number+1;
   g.rows.forEach(r=>{const cid=isNaN(+r.e.emp_id)?r.e.emp_id:+r.e.emp_id;const row=ws.addRow([r.n,cid,r.e.name+(r.hd?' — '+r.hd:''),asI(r.ob),...r.c,null,asI(r.cr)||null,null,...AS_CODES.map(()=>null)]);const rn=row.number;const rng=`${col(dc0)}${rn}:${col(dcN)}${rn}`;
@@ -2117,9 +2129,9 @@ async function asExcel(y,m){let X;try{notify('⏳ Excel…','info');X=await load
    style(row,'r');row.getCell(4).fill=fill('#F2F2F2')});
   const last1=first+g.rows.length-1;
   const tr=ws.addRow(['','','Total present','',...Array.from({length:last},(_,d)=>({formula:`COUNTIF(${col(dc0+d)}${first}:${col(dc0+d)}${last1},"P")`,result:g.tot[d]})),null,null,null,...AS_CODES.map((k,j)=>({formula:`SUM(${col(cK+j)}${first}:${col(cK+j)}${last1})`,result:g.sums[k]}))]);
-  ws.mergeCells(tr.number,3,tr.number,4);style(tr,'t');for(let cn=3;cn<=dcN+1;cn++)tr.getCell(cn).fill=fill('#FFFF00');totRows.push(tr.number)}
- if(groups.length>1){const gt=ws.addRow(['','','GRAND TOTAL','',...Array.from({length:last},(_,d)=>({formula:totRows.map(r=>`${col(dc0+d)}${r}`).join('+'),result:all.filter(r=>r.c[d]==='P').length})),null,null,null,...AS_CODES.map((k,j)=>({formula:totRows.map(r=>`${col(cK+j)}${r}`).join('+'),result:all.reduce((a,r)=>a+r.cnt[k],0)}))]);
-  ws.mergeCells(gt.number,3,gt.number,4);style(gt,'t');for(let cn=1;cn<=W;cn++)gt.getCell(cn).fill=fill('#FFD966')}
+  ws.mergeCells(tr.number,3,tr.number,4);style(tr,'t');for(let cn=3;cn<=dcN+1;cn++)tr.getCell(cn).fill=fill('#FFFF00');totRows.push(tr.number);addSigs();if(gi<groups.length-1||groups.length>1)brk()}
+ if(groups.length>1){addTitle();addHead();const gt=ws.addRow(['','','GRAND TOTAL','',...Array.from({length:last},(_,d)=>({formula:totRows.map(r=>`${col(dc0+d)}${r}`).join('+'),result:all.filter(r=>r.c[d]==='P').length})),null,null,null,...AS_CODES.map((k,j)=>({formula:totRows.map(r=>`${col(cK+j)}${r}`).join('+'),result:all.reduce((a,r)=>a+r.cnt[k],0)}))]);
+  ws.mergeCells(gt.number,3,gt.number,4);style(gt,'t');for(let cn=1;cn<=W;cn++)gt.getCell(cn).fill=fill('#FFD966');addSigs()}
  ws.pageSetup={paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:.2,right:.2,top:.3,bottom:.3,header:.1,footer:.1}};
  ws.columns.forEach((c,i)=>{c.width=i===0?7.1:i===1?7.4:i===2?42:i===3?7.3:(i>=dc0&&i<=dcN)?4.6:7.5});
  const buf=await wb.xlsx.writeBuffer();dlBlob(`${S.tmp.asMode==='heads'?'Head_Department_Attendance':'Attendance'}_${y}-${pad(m)}.xlsx`,new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));notify(L('Excel downloaded','تم تنزيل ملف Excel'))}
